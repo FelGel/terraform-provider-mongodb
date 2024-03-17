@@ -10,6 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -209,13 +211,30 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 
 	var keys = data.Get("keys").([]interface{})
 
+	// Initialize options.Index
+	indexOptions := options.Index()
+
 	// Create the index keys
 	indexKeys := bson.D{}
 	for _, _key := range keys {
 		key := _key.(map[string]interface{})
 		keyField := key["field"].(string)
 		value := key["value"].(string)
-		if value == "1" {
+
+		if keyField == "expireAfterSeconds" {
+			valueInt, err := strconv.Atoi(value)
+			if err != nil {
+				return "", diag.Errorf("expireAfterSeconds value must be integer : %s ", err)
+			}
+			if valueInt >= 0 {
+				indexOptions.SetExpireAfterSeconds(int32(valueInt))
+				continue
+			}
+		}
+
+		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
+			indexOptions.SetUnique(strings.ToLower(value)=="true")
+		} else if value == "1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: -1})
@@ -228,8 +247,6 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 		}
 	}
 
-	// Initialize options.Index
-	indexOptions := options.Index()
 	//indexOptions.SetUnique(data.Get("unique").(bool))
 	//indexOptions.SetSparse(data.Get("sparse").(bool))
 	//indexOptions.SetBits(int32(data.Get("bits").(int)))
