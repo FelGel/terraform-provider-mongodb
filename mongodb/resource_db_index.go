@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -219,6 +220,17 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 		key := _key.(map[string]interface{})
 		keyField := key["field"].(string)
 		value := key["value"].(string)
+
+		if keyField == "expireAfterSeconds" {
+			valueInt, err := strconv.Atoi(value)
+			if err != nil {
+				return "", diag.Errorf("expireAfterSeconds value must be integer : %s ", err)
+			}
+			if valueInt >= 0 {
+				indexOptions.SetExpireAfterSeconds(int32(valueInt))
+				continue
+			}
+		}
 
 		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
 			indexOptions.SetUnique(strings.ToLower(value)=="true")
