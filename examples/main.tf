@@ -89,6 +89,7 @@ resource "mongodb_db_user" "user" {
 resource "mongodb_db_collection" "collection_exemple_1" {
   db = "exemple"
   name = "collection_1"
+  record_pre_images = true
   deletion_protection = false
 }
 

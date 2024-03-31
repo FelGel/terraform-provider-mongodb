@@ -33,6 +33,11 @@ func resourceDatabaseCollection() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
+			"record_pre_images": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 	}
 }
@@ -45,12 +50,21 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 	}
 	var db = data.Get("db").(string)
 	var collectionName = data.Get("name").(string)
+	var recordPreImages = data.Get("record_pre_images").(bool)
 
 	dbClient := client.Database(db)
 
 	err := dbClient.CreateCollection(context.Background(), collectionName)
 	if err != nil {
 		return diag.Errorf("Could not create the collection : %s ", err)
+	}
+
+	if recordPreImages {
+		var recordPreImages = data.Get("record_pre_images").(bool)
+		_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+		if _err != nil {
+			return _err
+		}
 	}
 
 	SetId(data, []string{db, collectionName})
@@ -86,9 +100,16 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 		return diag.Errorf("collection does not exist")
 	}
 
+	var recordPreImages = data.Get("record_pre_images").(bool)
+	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+	if _err != nil {
+		return _err
+	}
+
 	_ = data.Set("db", db)
 	_ = data.Set("name", collectionName)
 	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
+	_ = data.Set("record_pre_images", data.Get("record_pre_images").(bool))
 	return nil
 }
 
@@ -140,4 +161,13 @@ func resourceDatabaseCollectionParseId(id string) (string, string, error) {
 	db := parts[0]
 	collectionName := parts[1]
 	return db, collectionName, nil
+}
+
+func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordPreImages bool) diag.Diagnostics {
+	result := dbClient.RunCommand(context.Background(), bson.D{{Key: "collMod", Value: collectionName},
+		{Key: "recordPreImages", Value: recordPreImages}})
+	if result.Err() != nil {
+		return diag.Errorf("Failed to set record pre-images: %s",result.Err())
+	}
+	return nil
 }
