@@ -93,10 +93,18 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 		return diag.Errorf("collection does not exist")
 	}
 
+	var collectionSpec *mongo.CollectionSpecification
+	err = cursor.Decode(&collectionSpec)
+	if err != nil {
+		return diag.Errorf("Failed decode collection specification : %s ", err)
+	}
+
+	recordPreImages, _ := collectionSpec.Options.Lookup("recordPreImages").BooleanOK()
+
 	_ = data.Set("db", db)
 	_ = data.Set("name", collectionName)
 	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
-	_ = data.Set("record_pre_images", data.Get("record_pre_images").(bool))
+	_ = data.Set("record_pre_images", recordPreImages)
 	return nil
 }
 
