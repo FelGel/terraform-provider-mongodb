@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
@@ -72,18 +73,10 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 }
 
 func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-
-	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)
+	dbClient, db, collectionName, err := parseDbAndCollection(data, i)
 	if err != nil {
 		return diag.Errorf("%s", err)
 	}
-
-	dbClient := client.Database(db)
 
 	// Construct the filter to check if collection exists
 	filter := bson.M{"name": collectionName}
@@ -100,12 +93,6 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 		return diag.Errorf("collection does not exist")
 	}
 
-	var recordPreImages = data.Get("record_pre_images").(bool)
-	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
-	if _err != nil {
-		return _err
-	}
-
 	_ = data.Set("db", db)
 	_ = data.Set("name", collectionName)
 	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
@@ -114,22 +101,27 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 }
 
 func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	dbClient, _, collectionName, err := parseDbAndCollection(data, i)
+	if err != nil {
+		return diag.Errorf("%s", err)
+	}
+
+	var recordPreImages = data.Get("record_pre_images").(bool)
+	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+	if _err != nil {
+		return _err
+	}
+
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
 
 func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-
-	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)
+	dbClient, _, collectionName, err := parseDbAndCollection(data, i)
 	if err != nil {
-		return diag.Errorf("ID mismatch %s", err)
+		return diag.Errorf("%s", err)
 	}
 
-	_err := dropCollection(client, db, collectionName, data)
+	_err := dropCollection(dbClient, collectionName, data)
 	if _err != nil {
 		return _err
 	}
@@ -137,12 +129,11 @@ func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.Resource
 	return nil
 }
 
-func dropCollection(client *mongo.Client, db string, collectionName string, data *schema.ResourceData) diag.Diagnostics {
+func dropCollection(dbClient *mongo.Database, collectionName string, data *schema.ResourceData) diag.Diagnostics {
 	if data.Get("deletion_protection").(bool) {
 		return diag.Errorf("Can't delete collection because deletion protection is enabled")
 	}
 
-	dbClient := client.Database(db)
 	collectionClient := dbClient.Collection(collectionName)
 	err := collectionClient.Drop(context.Background())
 	if err != nil {
@@ -170,4 +161,20 @@ func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordP
 		return diag.Errorf("Failed to set record pre-images: %s",result.Err())
 	}
 	return nil
+}
+
+func parseDbAndCollection(data *schema.ResourceData, i interface{}) (*mongo.Database, string, string, error) {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return nil, "", "", fmt.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("ID mismatch %s", err)
+	}
+
+	dbClient := client.Database(db)
+	return dbClient, db, collectionName, nil
 }

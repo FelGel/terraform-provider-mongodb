@@ -93,6 +93,12 @@ resource "mongodb_db_collection" "collection_exemple_1" {
   deletion_protection = false
 }
 
+resource "mongodb_db_collection" "collection_exemple_z" {
+  db = "exemple"
+  name = "collection_z"
+  deletion_protection = false
+}
+
 resource "mongodb_db_collection" "collection_exemple_2" {
   db = "exemple"
   name = "collection_2"
