@@ -8,7 +8,7 @@ Provides a Database Index resource.
 
 ```hcl
 
-resource "mongodb_db_index" "collection_1" {
+resource "mongodb_db_index" "example_index" {
   db         = "my_database"
   collection = "example"
   name       = "my_index"
@@ -20,12 +20,20 @@ resource "mongodb_db_index" "collection_1" {
     field = "field_name_to_index"
     value = "1"
   }
+  keys {
+    field = "unique"
+    value = "true"
+  }  
+  keys {
+    field = "expireAfterSeconds"
+    value = "86400"
+  }
   timeout = 30
 }
 ```
 
 ## Argument Reference
-* `db` - (Required) Database in which the target colleciton resides
+* `db` - (Required) Database in which the target collection resides
 * `collection` - (Required) Collection name
 * `keys` - (Required) Field and value pairs where the field is the index key and the value describes the type of index for that field
                       For an ascending index on a field, specify a value of 1. For descending index, specify a value of -1
