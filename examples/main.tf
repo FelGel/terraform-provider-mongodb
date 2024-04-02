@@ -89,6 +89,13 @@ resource "mongodb_db_user" "user" {
 resource "mongodb_db_collection" "collection_exemple_1" {
   db = "exemple"
   name = "collection_1"
+  record_pre_images = true
+  deletion_protection = false
+}
+
+resource "mongodb_db_collection" "collection_exemple_z" {
+  db = "exemple"
+  name = "collection_z"
   deletion_protection = false
 }
 
@@ -114,5 +121,24 @@ resource "mongodb_db_index" "index_exemple_1" {
   keys {
     field = "field_name_to_index2"
     value = "-1"
+  }
+  keys {
+    field = "unique"
+    value = "true"
+  }
+}
+
+
+resource "mongodb_db_index" "ttl_index" {
+  depends_on = [mongodb_db_collection.collection_exemple_1]
+  db = "exemple"
+  collection = "collection_1"
+  keys {
+    field = "field_name_to_index"
+    value = "1"
+  }
+  keys {
+    field = "expireAfterSeconds"
+    value = "86400"
   }
 }

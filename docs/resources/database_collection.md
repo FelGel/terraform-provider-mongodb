@@ -10,14 +10,15 @@ Provides a Database Collection resource.
 resource "mongodb_db_collection" "collection_1" {
   db = "my_database"
   name = "example"
+  record_pre_images = true
   deletion_protection = true
 }
 ```
 
 ## Argument Reference
-* `db`   - (Required) Database in which the colleciton will be created
+* `db`   - (Required) Database in which the collection will be created
 * `name` - (Required) Collection name
-* `keys` - (Required) Collection name
+* `record_pre_images` - (Optional) Control collection's pre-image support. Default is false
 * `deletion_protection` - (Optional) Prevent collection from being dropped
 
 
