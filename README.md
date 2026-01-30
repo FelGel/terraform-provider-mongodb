@@ -5,13 +5,12 @@
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/FelGel/terraform-provider-mongodb/golangci?logo=github&style=flat-square)
 ![GitHub issues](https://img.shields.io/github/issues/FelGel/terraform-provider-mongodb?logo=github&style=flat-square)
 
-
 This repository is a Terraform Mongodb for [Terraform](https://www.terraform.io).
 
 ### Requirements
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 0.13
-- [Go](https://golang.org/doc/install) >= 1.17
+- [Go](https://golang.org/doc/install) >= 1.25
 
 ### Installation
 

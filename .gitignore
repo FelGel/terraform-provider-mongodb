@@ -5,3 +5,5 @@
 **/*.locl.hcl
 **/testgo/**
 **/.terraform.lock.hcl
+vendor/
+terraform-provider-airflow

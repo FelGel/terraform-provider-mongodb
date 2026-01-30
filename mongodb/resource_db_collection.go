@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
@@ -175,7 +176,7 @@ func parseDbAndCollection(data *schema.ResourceData, i interface{}) (*mongo.Data
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
-		return nil, "", "", fmt.Errorf("Error connecting to database : %s ", connectionError)
+		return nil, "", "", fmt.Errorf("error connecting to database : %s ", connectionError)
 	}
 
 	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)

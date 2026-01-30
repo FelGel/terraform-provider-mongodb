@@ -2,11 +2,12 @@ package mongodb
 
 import (
 	"context"
+	"regexp"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"regexp"
-	"time"
 )
 
 func Provider() *schema.Provider {
@@ -90,7 +91,7 @@ func Provider() *schema.Provider {
 					"ALL_PROXY",
 					"all_proxy",
 				}, nil),
-				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile("^socks5h?://.*:\\d+$"), "The proxy URL is not a valid socks url.")),
+				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile(`^socks5h?://.*:\d+$`), "The proxy URL is not a valid socks url.")),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
