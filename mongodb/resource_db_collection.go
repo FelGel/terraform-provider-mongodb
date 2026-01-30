@@ -167,7 +167,7 @@ func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordP
 	result := dbClient.RunCommand(context.Background(), bson.D{{Key: "collMod", Value: collectionName},
 		{Key: "recordPreImages", Value: recordPreImages}})
 	if result.Err() != nil {
-		return diag.Errorf("Failed to set record pre-images: %s",result.Err())
+		return diag.Errorf("Failed to set record pre-images: %s", result.Err())
 	}
 	return nil
 }

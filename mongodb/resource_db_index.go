@@ -234,7 +234,7 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 		}
 
 		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
-			indexOptions.SetUnique(strings.ToLower(value)=="true")
+			indexOptions.SetUnique(strings.ToLower(value) == "true")
 		} else if value == "1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {

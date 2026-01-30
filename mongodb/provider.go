@@ -26,11 +26,11 @@ func Provider() *schema.Provider {
 				Description: "The mongodb server address",
 			},
 			"port": {
-				Type:        schema.TypeString,
-				Optional:    true,
+				Type:             schema.TypeString,
+				Optional:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(validation.IsPortNumber),
-				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
-				Description: "The mongodb server port",
+				DefaultFunc:      schema.EnvDefaultFunc("MONGO_PORT", "27017"),
+				Description:      "The mongodb server port",
 			},
 			"certificate": {
 				Type:        schema.TypeString,
