@@ -110,9 +110,9 @@ func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData,
 	var db = data.Get("db").(string)
 	var collectionName = data.Get("collection").(string)
 
-	indexName, err := createIndex(client, db, collectionName, data)
-	if err != nil {
-		return diag.Errorf("Error creating index: %s", err)
+	indexName, diags := createIndex(client, db, collectionName, data)
+	if diags != nil {
+		return diags
 	}
 
 	SetId(data, []string{db, collectionName, indexName})
