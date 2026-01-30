@@ -1,30 +1,21 @@
-name: golangci
+name: Go Linter
 on:
-  push:
-    tags:
-      - v*
-    branches:
-      - master
   pull_request:
-
+    types: [opened, synchronize, reopened]
 jobs:
-  go_lint:
-    name: golangci-lint
+  golangci:
+    name: Run linter
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
-          version: v1.30
-          skip-go-installation: true
+          go-version-file: "go.mod"
+          cache: true
 
-  go_test:
-    name: golang test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Download Go modules
-        run: go mod download
-      - name: Run Test
-        run: go test ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          only-new-issues: true

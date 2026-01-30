@@ -6,13 +6,14 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/proxy"
-	"net/url"
-	"strconv"
-	"time"
 )
 
 type ClientConfig struct {
@@ -108,7 +109,7 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		arguments = addArgs(arguments, "tlsAllowInvalidCertificates=true")
 	}
 
-	if c.ReplicaSet != "" && c.Direct == false {
+	if c.ReplicaSet != "" && !c.Direct {
 		arguments = addArgs(arguments, "replicaSet="+c.ReplicaSet)
 	}
 
@@ -144,7 +145,8 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		opts.SetTLSConfig(tlsConfig)
 	}
 
-	client, err := mongo.NewClient(opts)
+	// mongo.NewClient is deprecated, use mongo.Connect instead
+	client, err := mongo.Connect(context.Background(), opts)
 	return client, err
 }
 
@@ -160,7 +162,7 @@ func getTLSConfig(ca []byte, verify bool) (*tls.Config, error) {
 		tlsConfig.RootCAs = x509.NewCertPool()
 		ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
 		if !ok {
-			return tlsConfig, errors.New("Failed parsing pem file")
+			return tlsConfig, errors.New("failed parsing pem file")
 		}
 	}
 
@@ -197,8 +199,7 @@ func createUser(client *mongo.Client, user DbUser, roles []Role, database string
 }
 
 func getUser(client *mongo.Client, username string, database string) (SingleResultGetUser, error) {
-	var result *mongo.SingleResult
-	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
+	result := client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
 		{Key: "user", Value: username},
 		{Key: "db", Value: database},
 	},
@@ -212,14 +213,10 @@ func getUser(client *mongo.Client, username string, database string) (SingleResu
 }
 
 func getRole(client *mongo.Client, roleName string, database string) (SingleResultGetRole, error) {
-	var result *mongo.SingleResult
-	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "rolesInfo", Value: bson.D{
+	result := client.Database(database).RunCommand(context.Background(), bson.D{{Key: "rolesInfo", Value: bson.D{
 		{Key: "role", Value: roleName},
 		{Key: "db", Value: database},
-	},
-	},
-		{Key: "showPrivileges", Value: true},
-	})
+	}}, {Key: "showPrivileges", Value: true}})
 	var decodedResult SingleResultGetRole
 	err := result.Decode(&decodedResult)
 	if err != nil {
@@ -268,10 +265,7 @@ func MongoClientInit(conf *MongoDatabaseConfiguration) (*mongo.Client, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), conf.MaxConnLifetime*time.Second)
 	defer cancel()
-	err = client.Connect(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// client.Connect is deprecated, already connected by mongo.Connect above
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		return nil, err
