@@ -3,6 +3,10 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -10,9 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func resourceDatabaseIndex() *schema.Resource {
@@ -109,9 +110,9 @@ func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData,
 	var db = data.Get("db").(string)
 	var collectionName = data.Get("collection").(string)
 
-	indexName, err := createIndex(client, db, collectionName, data)
-	if err != nil {
-		return err
+	indexName, diags := createIndex(client, db, collectionName, data)
+	if diags != nil {
+		return diags
 	}
 
 	SetId(data, []string{db, collectionName, indexName})
@@ -233,7 +234,7 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 		}
 
 		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
-			indexOptions.SetUnique(strings.ToLower(value)=="true")
+			indexOptions.SetUnique(strings.ToLower(value) == "true")
 		} else if value == "1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {
