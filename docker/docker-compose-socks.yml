@@ -7,7 +7,7 @@ networks:
 services:
   mongo:
     container_name: mongo
-    image: mongo:3.6
+    image: mongo:7.0.29
     restart: always
     environment:
       - MONGODB_USER:root
