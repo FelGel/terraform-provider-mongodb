@@ -16,20 +16,28 @@ resource "mongodb_db_collection" "collection_1" {
 ```
 
 ## Argument Reference
-* `db`   - (Required) Database in which the collection will be created
-* `name` - (Required) Collection name
-* `record_pre_images` - (Optional) Control collection's pre-image support. Default is false
-* `deletion_protection` - (Optional) Prevent collection from being dropped
 
+* `db` (Required, string) – Database in which the collection will be created.
+* `name` (Required, string) – Collection name.
+* `record_pre_images` (Optional, bool, default: false) – Control collection's pre-image support.
+* `deletion_protection` (Optional, bool, default: false) – Prevent collection from being dropped.
+
+## Attributes Reference
+
+This resource exports the following attributes:
+
+* `id` – The base64-encoded ID of the collection in the format `db.collection`.
+* `name` – The name of the collection.
+* `db` – The database of the collection.
 
 ## Import
 
-Mongodb collections can be imported using the hex encoded id, e.g. for a collection named `collection_test` and his database id `test_db` :
+MongoDB collections can be imported using the base64-encoded id, e.g. for a collection named `collection_test` in database `test_db`:
 
 ```sh
 $ printf '%s' "test_db.collection_test" | base64
-## this is the output of the command above it will encode db.collection to HEX 
+# This encodes db.collection to base64
 dGVzdF9kYi5jb2xsZWN0aW9uX3Rlc3Q=
 
-$ terraform import mongodb_db_collection.example_collection  dGVzdF9kYi5jb2xsZWN0aW9uX3Rlc3Q=
+$ terraform import mongodb_db_collection.example_collection dGVzdF9kYi5jb2xsZWN0aW9uX3Rlc3Q=
 ```

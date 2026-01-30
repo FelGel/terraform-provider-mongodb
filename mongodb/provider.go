@@ -17,6 +17,7 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "The mongodb server connection string",
+				Sensitive:   true,
 			},
 			"host": {
 				Type:        schema.TypeString,
@@ -27,6 +28,7 @@ func Provider() *schema.Provider {
 			"port": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				ValidateDiagFunc: validation.ToDiagFunc(validation.IsPortNumber),
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
 				Description: "The mongodb server port",
 			},
@@ -47,6 +49,7 @@ func Provider() *schema.Provider {
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PWD", nil),
 				Description: "The mongodb password",
+				Sensitive:   true,
 			},
 			"auth_database": {
 				Type:        schema.TypeString,

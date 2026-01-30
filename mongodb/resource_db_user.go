@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
-	"strings"
 )
 
 func resourceDatabaseUser() *schema.Resource {
@@ -32,6 +33,7 @@ func resourceDatabaseUser() *schema.Resource {
 			"password":{
 				Type:     schema.TypeString,
 				Required: true,
+				Sensitive: true,
 			},
 			"role": {
 				Type:     schema.TypeSet,

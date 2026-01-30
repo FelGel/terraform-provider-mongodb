@@ -3,6 +3,10 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -10,9 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func resourceDatabaseIndex() *schema.Resource {
@@ -111,7 +112,7 @@ func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData,
 
 	indexName, err := createIndex(client, db, collectionName, data)
 	if err != nil {
-		return err
+		return diag.Errorf("Error creating index: %s", err)
 	}
 
 	SetId(data, []string{db, collectionName, indexName})
