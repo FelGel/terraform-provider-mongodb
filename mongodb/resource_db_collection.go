@@ -40,6 +40,11 @@ func resourceDatabaseCollection() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"change_stream_pre_and_post_images": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 	}
 }
@@ -53,6 +58,7 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 	var db = data.Get("db").(string)
 	var collectionName = data.Get("name").(string)
 	var recordPreImages = data.Get("record_pre_images").(bool)
+	var changeStreamPreAndPostImages = data.Get("change_stream_pre_and_post_images").(bool)
 
 	dbClient := client.Database(db)
 
@@ -64,6 +70,13 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 	if recordPreImages {
 		var recordPreImages = data.Get("record_pre_images").(bool)
 		_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+		if _err != nil {
+			return _err
+		}
+	}
+
+	if changeStreamPreAndPostImages {
+		_err := setChangeStreamPreAndPostImages(dbClient, collectionName, changeStreamPreAndPostImages)
 		if _err != nil {
 			return _err
 		}
@@ -101,11 +114,20 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 	}
 
 	recordPreImages, _ := collectionSpec.Options.Lookup("recordPreImages").BooleanOK()
+	changeStreamPreAndPostImages, _ := collectionSpec.Options.Lookup("changeStreamPreAndPostImages").DocumentOK()
+	changeStreamEnabled := false
+	if changeStreamPreAndPostImages != nil {
+		enabled, ok := changeStreamPreAndPostImages.Lookup("enabled").BooleanOK()
+		if ok {
+			changeStreamEnabled = enabled
+		}
+	}
 
 	_ = data.Set("db", db)
 	_ = data.Set("name", collectionName)
 	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
 	_ = data.Set("record_pre_images", recordPreImages)
+	_ = data.Set("change_stream_pre_and_post_images", changeStreamEnabled)
 	return nil
 }
 
@@ -116,7 +138,13 @@ func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.Resource
 	}
 
 	var recordPreImages = data.Get("record_pre_images").(bool)
+	var changeStreamPreAndPostImages = data.Get("change_stream_pre_and_post_images").(bool)
 	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+	if _err != nil {
+		return _err
+	}
+
+	_err = setChangeStreamPreAndPostImages(dbClient, collectionName, changeStreamPreAndPostImages)
 	if _err != nil {
 		return _err
 	}
@@ -168,6 +196,19 @@ func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordP
 		{Key: "recordPreImages", Value: recordPreImages}})
 	if result.Err() != nil {
 		return diag.Errorf("Failed to set record pre-images: %s", result.Err())
+	}
+	return nil
+}
+
+func setChangeStreamPreAndPostImages(dbClient *mongo.Database, collectionName string, enabled bool) diag.Diagnostics {
+	result := dbClient.RunCommand(context.Background(), bson.D{
+		{Key: "collMod", Value: collectionName},
+		{Key: "changeStreamPreAndPostImages", Value: bson.D{
+			{Key: "enabled", Value: enabled},
+		}},
+	})
+	if result.Err() != nil {
+		return diag.Errorf("Failed to set change stream pre and post images: %s", result.Err())
 	}
 	return nil
 }
