@@ -35,11 +35,11 @@ func resourceDatabaseCollection() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
-			"record_pre_images": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
+			// "record_pre_images": {
+			// 	Type:     schema.TypeBool,
+			// 	Optional: true,
+			// 	Deprecated: "This field is deprecated in favor of change_stream_pre_and_post_images",
+			// },
 			"change_stream_pre_and_post_images": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -57,7 +57,7 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 	}
 	var db = data.Get("db").(string)
 	var collectionName = data.Get("name").(string)
-	var recordPreImages = data.Get("record_pre_images").(bool)
+	// var recordPreImages = data.Get("record_pre_images").(bool)
 	var changeStreamPreAndPostImages = data.Get("change_stream_pre_and_post_images").(bool)
 
 	dbClient := client.Database(db)
@@ -67,13 +67,13 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 		return diag.Errorf("Could not create the collection : %s ", err)
 	}
 
-	if recordPreImages {
-		var recordPreImages = data.Get("record_pre_images").(bool)
-		_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
-		if _err != nil {
-			return _err
-		}
-	}
+	// if recordPreImages {
+	// 	var recordPreImages = data.Get("record_pre_images").(bool)
+	// 	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+	// 	if _err != nil {
+	// 		return _err
+	// 	}
+	// }
 
 	if changeStreamPreAndPostImages {
 		_err := setChangeStreamPreAndPostImages(dbClient, collectionName, changeStreamPreAndPostImages)
@@ -113,7 +113,7 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 		return diag.Errorf("Failed decode collection specification : %s ", err)
 	}
 
-	recordPreImages, _ := collectionSpec.Options.Lookup("recordPreImages").BooleanOK()
+	// recordPreImages, _ := collectionSpec.Options.Lookup("recordPreImages").BooleanOK()
 	changeStreamPreAndPostImages, _ := collectionSpec.Options.Lookup("changeStreamPreAndPostImages").DocumentOK()
 	changeStreamEnabled := false
 	if changeStreamPreAndPostImages != nil {
@@ -126,7 +126,7 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 	_ = data.Set("db", db)
 	_ = data.Set("name", collectionName)
 	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
-	_ = data.Set("record_pre_images", recordPreImages)
+	// _ = data.Set("record_pre_images", recordPreImages)
 	_ = data.Set("change_stream_pre_and_post_images", changeStreamEnabled)
 	return nil
 }
@@ -137,14 +137,14 @@ func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.Resource
 		return diag.Errorf("%s", err)
 	}
 
-	var recordPreImages = data.Get("record_pre_images").(bool)
-	var changeStreamPreAndPostImages = data.Get("change_stream_pre_and_post_images").(bool)
-	_err := setPreRecordImages(dbClient, collectionName, recordPreImages)
-	if _err != nil {
-		return _err
-	}
+	// var recordPreImages = data.Get("record_pre_images").(bool)
+	// _err := setPreRecordImages(dbClient, collectionName, recordPreImages)
+	// if _err != nil {
+	// 	return _err
+	// }
 
-	_err = setChangeStreamPreAndPostImages(dbClient, collectionName, changeStreamPreAndPostImages)
+	var changeStreamPreAndPostImages = data.Get("change_stream_pre_and_post_images").(bool)
+	_err := setChangeStreamPreAndPostImages(dbClient, collectionName, changeStreamPreAndPostImages)
 	if _err != nil {
 		return _err
 	}
@@ -191,14 +191,14 @@ func resourceDatabaseCollectionParseId(id string) (string, string, error) {
 	return db, collectionName, nil
 }
 
-func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordPreImages bool) diag.Diagnostics {
-	result := dbClient.RunCommand(context.Background(), bson.D{{Key: "collMod", Value: collectionName},
-		{Key: "recordPreImages", Value: recordPreImages}})
-	if result.Err() != nil {
-		return diag.Errorf("Failed to set record pre-images: %s", result.Err())
-	}
-	return nil
-}
+// func setPreRecordImages(dbClient *mongo.Database, collectionName string, recordPreImages bool) diag.Diagnostics {
+// 	result := dbClient.RunCommand(context.Background(), bson.D{{Key: "collMod", Value: collectionName},
+// 		{Key: "recordPreImages", Value: recordPreImages}})
+// 	if result.Err() != nil {
+// 		return diag.Errorf("Failed to set record pre-images: %s", result.Err())
+// 	}
+// 	return nil
+// }
 
 func setChangeStreamPreAndPostImages(dbClient *mongo.Database, collectionName string, enabled bool) diag.Diagnostics {
 	result := dbClient.RunCommand(context.Background(), bson.D{

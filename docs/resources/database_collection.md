@@ -10,7 +10,6 @@ Provides a Database Collection resource.
 resource "mongodb_db_collection" "collection_1" {
   db = "my_database"
   name = "example"
-  record_pre_images = true
   change_stream_pre_and_post_images = true
   deletion_protection = true
 }
@@ -20,7 +19,6 @@ resource "mongodb_db_collection" "collection_1" {
 
 * `db` (Required, string) – Database in which the collection will be created.
 * `name` (Required, string) – Collection name.
-* `record_pre_images` (Optional, bool, default: false) – Control collection's pre-image support.
 * `change_stream_pre_and_post_images` (Optional, bool, default: false) – Enable capturing of full document before and after images for change streams.
 * `deletion_protection` (Optional, bool, default: false) – Prevent collection from being dropped.
 
