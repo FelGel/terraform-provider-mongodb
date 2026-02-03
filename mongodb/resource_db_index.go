@@ -150,16 +150,30 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 	}
 
 	indexFound := false
-	keys := make(map[string]string)
+	var indexKeys []interface{}
 	for _, result := range results {
 		tflog.Debug(ctx, fmt.Sprintf("Index: %v", result))
 		for k, v := range result {
 			if k == "name" && v == indexName {
-				// In MongoDB driver v2, primitive.M is now bson.M
-				keysPrimitives := result["key"].(bson.M)
-				for key, value := range keysPrimitives {
-					keys[key] = fmt.Sprintf("%v", value)
+				// In MongoDB driver v2, index keys are returned as bson.D (ordered document)
+				keysPrimitives := result["key"].(bson.D)
+				for _, elem := range keysPrimitives {
+					keyMap := map[string]interface{}{
+						"field": elem.Key,
+						"value": fmt.Sprintf("%v", elem.Value),
+					}
+					indexKeys = append(indexKeys, keyMap)
 				}
+				
+				// Check for TTL index (expireAfterSeconds option)
+				if expireAfter, ok := result["expireAfterSeconds"]; ok {
+					ttlMap := map[string]interface{}{
+						"field": "expireAfterSeconds",
+						"value": fmt.Sprintf("%v", expireAfter),
+					}
+					indexKeys = append(indexKeys, ttlMap)
+				}
+				
 				indexFound = true
 				break
 			}
@@ -176,7 +190,7 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 	_ = data.Set("db", db)
 	_ = data.Set("collection", collectionName)
 	_ = data.Set("name", indexName)
-	_ = data.Set("keys", keys)
+	_ = data.Set("keys", indexKeys)
 	_ = data.Set("timeout", data.Get("timeout").(int))
 
 	return nil
