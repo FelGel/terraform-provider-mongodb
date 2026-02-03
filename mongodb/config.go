@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"golang.org/x/net/proxy"
 )
 
@@ -145,8 +145,8 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		opts.SetTLSConfig(tlsConfig)
 	}
 
-	// mongo.NewClient is deprecated, use mongo.Connect instead
-	client, err := mongo.Connect(context.Background(), opts)
+	// In MongoDB driver v2, mongo.Connect() no longer accepts a context parameter
+	client, err := mongo.Connect(opts)
 	return client, err
 }
 

@@ -10,10 +10,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func resourceDatabaseIndex() *schema.Resource {
@@ -156,7 +155,8 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 		tflog.Debug(ctx, fmt.Sprintf("Index: %v", result))
 		for k, v := range result {
 			if k == "name" && v == indexName {
-				keysPrimitives := result["key"].(primitive.M)
+				// In MongoDB driver v2, primitive.M is now bson.M
+				keysPrimitives := result["key"].(bson.M)
 				for key, value := range keysPrimitives {
 					keys[key] = fmt.Sprintf("%v", value)
 				}
@@ -264,11 +264,13 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 		Options: indexOptions,
 	}
 
+	// In MongoDB driver v2, MaxTime option is removed. Use context timeout instead.
 	var timeout = data.Get("timeout").(int)
-	opts := options.CreateIndexes().SetMaxTime(time.Duration(timeout) * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
 
 	// Create the index
-	indexName, err := collectionClient.Indexes().CreateOne(context.Background(), indexModel, opts)
+	indexName, err := collectionClient.Indexes().CreateOne(ctx, indexModel)
 	if err != nil {
 		return "", diag.Errorf("Could not create the index : %s ", err)
 	}
@@ -278,7 +280,8 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 func dropIndex(client *mongo.Client, db string, collectionName string, indexName string) diag.Diagnostics {
 	dbClient := client.Database(db)
 	collectionClient := dbClient.Collection(collectionName)
-	_, err := collectionClient.Indexes().DropOne(context.TODO(), indexName)
+	// In MongoDB driver v2, DropOne no longer returns the server response
+	err := collectionClient.Indexes().DropOne(context.TODO(), indexName)
 	if err != nil {
 		return diag.Errorf("%s", err)
 	}
