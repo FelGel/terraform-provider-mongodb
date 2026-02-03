@@ -34,6 +34,12 @@ func TestAccMongoDBIndex_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "keys.0.value", "1"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"timeout"},
+			},
 		},
 	})
 }
@@ -62,6 +68,12 @@ func TestAccMongoDBIndex_MultipleFields(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "field2"),
 					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "-1"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
 	})
@@ -122,6 +134,12 @@ func TestAccMongoDBIndex_TTLIndex(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "expireAfterSeconds"),
 					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "3600"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
 	})

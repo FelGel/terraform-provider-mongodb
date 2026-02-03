@@ -31,6 +31,12 @@ func TestAccMongoDBCollection_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "change_stream_pre_and_post_images", "false"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"deletion_protection"},
+			},
 		},
 	})
 }
@@ -54,6 +60,12 @@ func TestAccMongoDBCollection_WithChangeStreamImages(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "deletion_protection", "false"),
 					resource.TestCheckResourceAttr(resourceName, "change_stream_pre_and_post_images", "true"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"deletion_protection"},
 			},
 		},
 	})
