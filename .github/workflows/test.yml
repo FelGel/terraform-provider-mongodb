@@ -24,7 +24,7 @@ jobs:
       - name: Start MongoDB
         run: |
           cd docker
-          docker-compose up -d mongo
+          docker compose up -d mongo
           # Wait for MongoDB to be ready
           timeout 60 bash -c 'until docker exec mongo mongosh --eval "db.adminCommand({ping: 1})" >/dev/null 2>&1; do sleep 2; done'
           echo "MongoDB is ready"
@@ -45,4 +45,4 @@ jobs:
         if: always()
         run: |
           cd docker
-          docker-compose down -v
+          docker compose down -v
