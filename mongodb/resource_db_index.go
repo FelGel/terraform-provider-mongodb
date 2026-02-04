@@ -165,6 +165,15 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 					indexKeys = append(indexKeys, keyMap)
 				}
 				
+				// Check for unique option
+				if unique, ok := result["unique"]; ok {
+					uniqueMap := map[string]interface{}{
+						"field": "unique",
+						"value": fmt.Sprintf("%v", unique),
+					}
+					indexKeys = append(indexKeys, uniqueMap)
+				}
+				
 				// Check for TTL index (expireAfterSeconds option)
 				if expireAfter, ok := result["expireAfterSeconds"]; ok {
 					ttlMap := map[string]interface{}{
@@ -249,6 +258,7 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 
 		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
 			indexOptions.SetUnique(strings.ToLower(value) == "true")
+			continue
 		} else if value == "1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {

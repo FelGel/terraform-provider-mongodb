@@ -170,6 +170,45 @@ func TestAccMongoDBIndex_GeneratedName(t *testing.T) {
 	})
 }
 
+func TestAccMongoDBIndex_Unique(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-unique-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+	
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexUnique(databaseName, collectionName, indexName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "db", databaseName),
+					resource.TestCheckResourceAttr(resourceName, "collection", collectionName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					resource.TestCheckResourceAttr(resourceName, "keys.#", "4"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.field", "entity_type"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "entity_id"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.field", "profile_type"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.3.field", "unique"),
+					resource.TestCheckResourceAttr(resourceName, "keys.3.value", "true"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{"timeout"},
+			},
+		},
+	})
+}
+
 func testAccCheckMongoDBIndexExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -380,4 +419,38 @@ resource "mongodb_db_index" "test" {
   timeout = 30
 }
 `, dbName, collectionName, dbName, collectionName)
+}
+
+func testAccMongoDBIndexUnique(dbName, collectionName, indexName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "entity_type"
+    value = "1"
+  }
+  keys {
+    field = "entity_id"
+    value = "1"
+  }
+  keys {
+    field = "profile_type"
+    value = "1"
+  }
+  keys {
+    field = "unique"
+    value = "true"
+  }
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName)
 }
