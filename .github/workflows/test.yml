@@ -39,7 +39,7 @@ jobs:
           MONGO_USR: root
           MONGO_PWD: root
         run: |
-          go test -v -run "TestAccMongoDB_.*" -timeout 30m ./mongodb/
+          go test -v -run "TestAcc.*" -timeout 30m ./mongodb/
       
       - name: Stop MongoDB
         if: always()
