@@ -161,6 +161,10 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 	if dataSetError != nil {
 		return diag.Errorf("error setting auth_db : %s ", dataSetError)
 	}
+	dataSetError = data.Set("name", username)
+	if dataSetError != nil {
+		return diag.Errorf("error setting name : %s ", dataSetError)
+	}
 	dataSetError = data.Set("password", data.Get("password"))
 	if dataSetError != nil {
 		return diag.Errorf("error setting password : %s ", dataSetError)
