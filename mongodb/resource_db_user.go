@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func resourceDatabaseUser() *schema.Resource {
@@ -29,6 +30,7 @@ func resourceDatabaseUser() *schema.Resource {
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"password": {
 				Type:      schema.TypeString,
@@ -98,27 +100,37 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
-	var userPassword = data.Get("password").(string)
 
 	adminDB := client.Database(database)
 
-	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
-	if result.Err() != nil {
-		return diag.Errorf("%s", result.Err())
-	}
-	var roleList []Role
-	var user = DbUser{
-		Name:     userName,
-		Password: userPassword,
-	}
-	roles := data.Get("role").(*schema.Set).List()
-	roleMapErr := mapstructure.Decode(roles, &roleList)
-	if roleMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", roleMapErr)
-	}
-	err2 := createUser(client, user, roleList, database)
-	if err2 != nil {
-		return diag.Errorf("Could not create the user : %s ", err2)
+	// Only update if password or roles have changed
+	if data.HasChange("password") || data.HasChange("role") {
+		var userPassword = data.Get("password").(string)
+		var roleList []Role
+		roles := data.Get("role").(*schema.Set).List()
+		roleMapErr := mapstructure.Decode(roles, &roleList)
+		if roleMapErr != nil {
+			return diag.Errorf("Error decoding map : %s ", roleMapErr)
+		}
+
+		var result *mongo.SingleResult
+		if len(roleList) != 0 {
+			result = adminDB.RunCommand(context.Background(), bson.D{
+				{Key: "updateUser", Value: userName},
+				{Key: "pwd", Value: userPassword},
+				{Key: "roles", Value: roleList},
+			})
+		} else {
+			result = adminDB.RunCommand(context.Background(), bson.D{
+				{Key: "updateUser", Value: userName},
+				{Key: "pwd", Value: userPassword},
+				{Key: "roles", Value: []bson.M{}},
+			})
+		}
+
+		if result.Err() != nil {
+			return diag.Errorf("Could not update the user : %s ", result.Err())
+		}
 	}
 
 	newId := database + "." + userName

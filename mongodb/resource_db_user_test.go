@@ -68,6 +68,25 @@ func TestAccMongoDBUser_MultipleRoles(t *testing.T) {
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{"password"},
 			},
+			{
+				Config: testAccMongoDBUserBasic(databaseName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "auth_database", databaseName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+					resource.TestCheckResourceAttr(resourceName, "password", password),
+					resource.TestCheckResourceAttr(resourceName, "role.#", "1"),
+				),
+			},
+			{
+				Config: testAccMongoDBUserMultipleRoles(databaseName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "auth_database", databaseName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+					resource.TestCheckResourceAttr(resourceName, "role.#", "2"),
+				),
+			},
 		},
 	})
 }
