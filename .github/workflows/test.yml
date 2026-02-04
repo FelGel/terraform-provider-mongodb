@@ -1,0 +1,48 @@
+name: Run Tests
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      
+      - name: Start MongoDB
+        run: |
+          cd docker
+          docker-compose up -d mongo
+          # Wait for MongoDB to be ready
+          timeout 60 bash -c 'until docker exec mongo mongosh --eval "db.adminCommand({ping: 1})" >/dev/null 2>&1; do sleep 2; done'
+          echo "MongoDB is ready"
+      
+      - name: Run Unit Tests
+        run: go test -v ./mongodb/ -short
+      
+      - name: Run Acceptance Tests
+        env:
+          TF_ACC: "1"
+          MONGO_HOST: localhost
+          MONGO_USR: root
+          MONGO_PWD: root
+        run: |
+          go test -v -run "TestAccMongoDBIndex_.*" -timeout 30m ./mongodb/
+      
+      - name: Stop MongoDB
+        if: always()
+        run: |
+          cd docker
+          docker-compose down -v
