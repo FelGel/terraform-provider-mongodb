@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -217,10 +218,15 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 	privileges := make([]interface{}, len(result.Roles[0].Privileges))
 
 	for i, s := range result.Roles[0].Privileges {
+		// Sort actions to ensure consistent ordering
+		actions := make([]string, len(s.Actions))
+		copy(actions, s.Actions)
+		sort.Strings(actions)
+		
 		privileges[i] = map[string]interface{}{
 			"db":         s.Resource.Db,
 			"collection": s.Resource.Collection,
-			"actions":    s.Actions,
+			"actions":    actions,
 		}
 	}
 	dataSetError = data.Set("privilege", privileges)
