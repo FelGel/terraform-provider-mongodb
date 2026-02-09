@@ -141,3 +141,33 @@ resource "mongodb_db_index" "ttl_index" {
     value = "86400"
   }
 }
+
+resource "mongodb_db_index" "partial_index" {
+  depends_on = [mongodb_db_collection.collection_exemple_1]
+  db         = "exemple"
+  collection = "collection_1"
+  name       = "my_partial_index"
+  keys {
+    field = "field_a"
+    value = "1"
+  }
+  keys {
+    field = "field_b"
+    value = "1"
+  }
+  partial_filter_expression = jsonencode({
+    "field_a" = { "$exists" = true }
+  })
+}
+
+resource "mongodb_db_index" "hidden_index" {
+  depends_on = [mongodb_db_collection.collection_exemple_1]
+  db         = "exemple"
+  collection = "collection_1"
+  name       = "my_hidden_index"
+  keys {
+    field = "old_field"
+    value = "1"
+  }
+  hidden = true
+}

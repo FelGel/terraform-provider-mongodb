@@ -7,7 +7,6 @@ Provides a Database Index resource.
 ##### - create index
 
 ```hcl
-
 resource "mongodb_db_index" "example_index" {
   db         = "my_database"
   collection = "example"
@@ -32,6 +31,52 @@ resource "mongodb_db_index" "example_index" {
 }
 ```
 
+##### - create partial index
+
+```hcl
+resource "mongodb_db_index" "partial_index" {
+  db         = "my_database"
+  collection = "example"
+  name       = "my_partial_index"
+  keys {
+    field = "field_a"
+    value = "1"
+  }
+  keys {
+    field = "field_b"
+    value = "1"
+  }
+  keys {
+    field = "field_c"
+    value = "1"
+  }
+  partial_filter_expression = jsonencode({
+    "field_a" = { "$exists" = true }
+  })
+  timeout = 30
+}
+```
+
+##### - create hidden index
+
+```hcl
+resource "mongodb_db_index" "hidden_index" {
+  db         = "my_database"
+  collection = "example"
+  name       = "my_hidden_index"
+  keys {
+    field = "field_x"
+    value = "1"
+  }
+  keys {
+    field = "field_y"
+    value = "1"
+  }
+  hidden  = true
+  timeout = 30
+}
+```
+
 ## Argument Reference
 * `db` - (Required) Database in which the target collection resides
 * `collection` - (Required) Collection name
@@ -39,6 +84,8 @@ resource "mongodb_db_index" "example_index" {
                       For an ascending index on a field, specify a value of 1. For descending index, specify a value of -1
                       See https://www.mongodb.com/docs/manual/reference/method/db.collection.createIndex/ for details
 * `name` - (Optional) Index name
+* `partial_filter_expression` - (Optional) A JSON string representing the partialFilterExpression for a partial index. Use `jsonencode()` for readability. See https://www.mongodb.com/docs/manual/core/index-partial/ for details
+* `hidden` - (Optional, default: false) If true, the index is hidden from the query planner (MongoDB 4.4+). Can be toggled in-place without recreating the index. Useful for evaluating index removal safety. See https://www.mongodb.com/docs/manual/core/index-hidden/
 * `timeout` - (Optional) Timeout for index creation operation
 
 
