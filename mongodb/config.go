@@ -32,8 +32,9 @@ type ClientConfig struct {
 	Proxy              string
 }
 type DbUser struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	Name          string `json:"name"`
+	Password      string `json:"password"`
+	AuthMechanism string `json:"authMechanism,omitempty"`
 }
 
 type Role struct {
@@ -57,10 +58,11 @@ type Privilege struct {
 }
 type SingleResultGetUser struct {
 	Users []struct {
-		Id    string `json:"_id"`
-		User  string `json:"user"`
-		Db    string `json:"db"`
-		Roles []struct {
+		Id         string   `json:"_id"`
+		User       string   `json:"user"`
+		Db         string   `json:"db"`
+		Mechanisms []string `json:"mechanisms"`
+		Roles      []struct {
 			Role string `json:"role"`
 			Db   string `json:"db"`
 		} `json:"roles"`
@@ -180,6 +182,20 @@ type Resource struct {
 
 func (resource Resource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
+}
+
+func createIAMUser(client *mongo.Client, userName string, roles []Role) error {
+	rolesValue := roles
+	if rolesValue == nil {
+		rolesValue = []Role{}
+	}
+	cmd := bson.D{
+		{Key: "createUser", Value: userName},
+		{Key: "mechanisms", Value: bson.A{"MONGODB-AWS"}},
+		{Key: "roles", Value: rolesValue},
+	}
+	result := client.Database("$external").RunCommand(context.Background(), cmd)
+	return result.Err()
 }
 
 func createUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
