@@ -79,6 +79,14 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
+      # Install Terraform on the runner so the SDK test harness discovers it
+      # (fs.AnyVersion) instead of downloading + GPG-verifying its own copy,
+      # which fails on the expired HashiCorp signing key pinned via hc-install.
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
       - name: Start MongoDB
         env:
           MONGODB_VERSION: ${{ matrix.mongodb }}
