@@ -18,7 +18,7 @@ func TestAccMongoDBCollection_Basic(t *testing.T) {
 	
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -48,7 +48,7 @@ func TestAccMongoDBCollection_WithChangeStreamImages(t *testing.T) {
 	
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -78,7 +78,7 @@ func TestAccMongoDBCollection_Update(t *testing.T) {
 	
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -110,7 +110,7 @@ func testAccCheckMongoDBCollectionExists(resourceName string) resource.TestCheck
 			return fmt.Errorf("no ID is set")
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -137,7 +137,7 @@ func testAccCheckMongoDBCollectionExists(resourceName string) resource.TestCheck
 }
 
 func testAccCheckMongoDBCollectionDestroy(s *terraform.State) error {
-	config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+	config := testAccMongoConfig()
 	client, err := MongoClientInit(config)
 	if err != nil {
 		return fmt.Errorf("error connecting to database: %s", err)

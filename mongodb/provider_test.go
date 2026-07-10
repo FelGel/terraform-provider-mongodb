@@ -9,11 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-var testAccProviderFactories map[string]func() (*schema.Provider, error)
 var testAccProvider *schema.Provider
 
 // testAccProtoV6ProviderFactories serves the muxed provider (SDKv2 + framework)
-// over protocol 6. Framework-backed resources (mongodb_db_user) use this.
+// over protocol 6. All resources are framework-backed and use this.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 	"mongodb": func() (tfprotov6.ProviderServer, error) {
 		factory, err := MuxServerFactory(context.Background())
@@ -42,11 +41,6 @@ func testAccMongoConfig() *MongoDatabaseConfiguration {
 
 func init() {
 	testAccProvider = Provider()
-	testAccProviderFactories = map[string]func() (*schema.Provider, error){
-		"mongodb": func() (*schema.Provider, error) {
-			return testAccProvider, nil
-		},
-	}
 }
 
 func testAccPreCheck(t *testing.T) {

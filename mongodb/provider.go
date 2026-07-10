@@ -26,10 +26,10 @@ func Provider() *schema.Provider {
 				Description: "The mongodb server address",
 			},
 			"port": {
-				Type:             schema.TypeString,
-				Optional:         true,
-				DefaultFunc:      schema.EnvDefaultFunc("MONGO_PORT", "27017"),
-				Description:      "The mongodb server port",
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
+				Description: "The mongodb server port",
 			},
 			"certificate": {
 				Type:        schema.TypeString,
@@ -96,13 +96,11 @@ func Provider() *schema.Provider {
 				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile(`^socks5h?://.*:\d+$`), "The proxy URL is not a valid socks url.")),
 			},
 		},
-		ResourcesMap: map[string]*schema.Resource{
-			// mongodb_db_user is served by the terraform-plugin-framework half
-			// (see framework_db_user.go); it must not also be registered here.
-			"mongodb_db_role":       resourceDatabaseRole(),
-			"mongodb_db_collection": resourceDatabaseCollection(),
-			"mongodb_db_index":      resourceDatabaseIndex(),
-		},
+		// All resources are now served by the terraform-plugin-framework half
+		// (see framework_*.go), muxed alongside this SDKv2 provider. They must
+		// not be registered here too. The SDKv2 provider is retained only for
+		// its configuration schema (which the mux requires to match).
+		ResourcesMap:         map[string]*schema.Resource{},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
 	}
