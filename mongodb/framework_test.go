@@ -50,11 +50,14 @@ func TestResourceStateShapeUnchanged(t *testing.T) {
 		name string
 		sdk  *sdkschema.Resource
 		fw   resource.Resource
+		// newAttrs are framework attributes added since the SDKv2 schema
+		// (additive, not a state-compat concern) and excluded from the check.
+		newAttrs map[string]bool
 	}{
-		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource()},
-		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource()},
-		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource()},
-		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource()},
+		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true}},
+		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource(), nil},
+		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource(), nil},
+		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource(), nil},
 	}
 
 	for _, tc := range cases {
@@ -81,7 +84,7 @@ func TestResourceStateShapeUnchanged(t *testing.T) {
 				}
 			}
 			for name := range fwKinds {
-				if _, present := sdkKinds[name]; !present {
+				if _, present := sdkKinds[name]; !present && !tc.newAttrs[name] {
 					t.Errorf("framework has attribute %q absent from SDKv2 schema — new state field", name)
 				}
 			}

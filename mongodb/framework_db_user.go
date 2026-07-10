@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -12,6 +14,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -23,12 +27,14 @@ var dbUserRoleObjectType = types.ObjectType{AttrTypes: map[string]attr.Type{
 }}
 
 type dbUserResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	AuthDatabase  types.String `tfsdk:"auth_database"`
-	Name          types.String `tfsdk:"name"`
-	Password      types.String `tfsdk:"password"`
-	AuthMechanism types.String `tfsdk:"auth_mechanism"`
-	Roles         types.Set    `tfsdk:"role"`
+	ID                types.String `tfsdk:"id"`
+	AuthDatabase      types.String `tfsdk:"auth_database"`
+	Name              types.String `tfsdk:"name"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.String `tfsdk:"password_wo_version"`
+	AuthMechanism     types.String `tfsdk:"auth_mechanism"`
+	Roles             types.Set    `tfsdk:"role"`
 }
 
 type dbUserRoleModel struct {
@@ -43,10 +49,11 @@ type dbUserResource struct {
 func newDBUserResource() resource.Resource { return &dbUserResource{} }
 
 var (
-	_ resource.Resource                = &dbUserResource{}
-	_ resource.ResourceWithConfigure   = &dbUserResource{}
-	_ resource.ResourceWithImportState = &dbUserResource{}
-	_ resource.ResourceWithModifyPlan  = &dbUserResource{}
+	_ resource.Resource                     = &dbUserResource{}
+	_ resource.ResourceWithConfigure        = &dbUserResource{}
+	_ resource.ResourceWithImportState      = &dbUserResource{}
+	_ resource.ResourceWithModifyPlan       = &dbUserResource{}
+	_ resource.ResourceWithConfigValidators = &dbUserResource{}
 )
 
 func (r *dbUserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -75,6 +82,18 @@ func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Sensitive:     true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"password_wo": schema.StringAttribute{
+				Optional:  true,
+				Sensitive: true,
+				WriteOnly: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("password")),
+					stringvalidator.AlsoRequires(path.MatchRoot("password_wo_version")),
+				},
+			},
+			"password_wo_version": schema.StringAttribute{
+				Optional: true,
+			},
 			"auth_mechanism": schema.StringAttribute{
 				Optional: true,
 			},
@@ -102,6 +121,32 @@ func (r *dbUserResource) Configure(_ context.Context, req resource.ConfigureRequ
 		return
 	}
 	r.config = config
+}
+
+// ConfigValidators nudges practitioners toward the write-only password when the
+// plaintext `password` is set (HashiCorp's recommended pairing). The hard
+// mutual-exclusion and "version required" rules are attribute validators on
+// password_wo; the IAM (MONGODB-AWS) rejection is handled in ModifyPlan via
+// validateDBUserDiff on the effective password.
+func (r *dbUserResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.PreferWriteOnlyAttribute(
+			path.MatchRoot("password"),
+			path.MatchRoot("password_wo"),
+		),
+	}
+}
+
+// effectivePassword returns the password to apply, preferring the stored
+// `password` attribute and falling back to the write-only `password_wo` value —
+// which lives only in config, never in plan or state.
+func effectivePassword(ctx context.Context, config tfsdk.Config, plan dbUserResourceModel) (string, diag.Diagnostics) {
+	if pw := plan.Password.ValueString(); pw != "" {
+		return pw, nil
+	}
+	var wo types.String
+	diags := config.GetAttribute(ctx, path.Root("password_wo"), &wo)
+	return wo.ValueString(), diags
 }
 
 // ModifyPlan ports the SDKv2 customizeDiffDBUser cross-field logic.
@@ -134,7 +179,11 @@ func (r *dbUserResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 		plan.Password = state.Password
 	}
 
-	password := plan.Password.ValueString()
+	password, pwDiags := effectivePassword(ctx, req.Config, plan)
+	resp.Diagnostics.Append(pwDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	if err := validateDBUserDiff(authMechanism, password); err != nil {
 		resp.Diagnostics.AddError("Invalid db_user configuration", err.Error())
 		return
@@ -183,7 +232,12 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 			return
 		}
 	} else {
-		user := DbUser{Name: userName, Password: plan.Password.ValueString()}
+		pw, pwDiags := effectivePassword(ctx, req.Config, plan)
+		resp.Diagnostics.Append(pwDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		user := DbUser{Name: userName, Password: pw}
 		if err := createUser(client, user, roleList, database); err != nil {
 			resp.Diagnostics.AddError("Could not create the user", err.Error())
 			return
@@ -193,6 +247,7 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 	id := base64.StdEncoding.EncodeToString([]byte(database + "." + userName))
 	var state dbUserResourceModel
 	state.Password = knownOrEmpty(plan.Password)
+	state.PasswordWOVersion = plan.PasswordWOVersion
 	if err := r.readUserInto(client, id, &state); err != nil {
 		resp.Diagnostics.AddError("Error reading user after create", err.Error())
 		return
@@ -254,7 +309,12 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 		// IAM users: update roles only; password is ignored.
 		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "roles", Value: rolesValue}}
 	} else {
-		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: plan.Password.ValueString()}, {Key: "roles", Value: rolesValue}}
+		pw, pwDiags := effectivePassword(ctx, req.Config, plan)
+		resp.Diagnostics.Append(pwDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: pw}, {Key: "roles", Value: rolesValue}}
 	}
 	if result := adminDB.RunCommand(ctx, cmd); result.Err() != nil {
 		resp.Diagnostics.AddError("Could not update the user", result.Err().Error())
@@ -264,6 +324,7 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	id := base64.StdEncoding.EncodeToString([]byte(database + "." + userName))
 	var state dbUserResourceModel
 	state.Password = knownOrEmpty(plan.Password)
+	state.PasswordWOVersion = plan.PasswordWOVersion
 	if err := r.readUserInto(client, id, &state); err != nil {
 		resp.Diagnostics.AddError("Error reading user after update", err.Error())
 		return
