@@ -66,6 +66,19 @@ func resourceDatabaseIndex() *schema.Resource {
 					return false
 				},
 			},
+			"partial_filter_expression": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Default:     "",
+				Description: "A JSON string representing the partialFilterExpression for a partial index. Example: {\"field\": {\"$exists\": true}}",
+			},
+			"hidden": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "If true, the index is hidden from the query planner (MongoDB 4.4+). Can be toggled without recreating the index.",
+			},
 			//"unique": {
 			//	Type:     schema.TypeBool,
 			//	Optional: true,
@@ -182,7 +195,24 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 					}
 					indexKeys = append(indexKeys, ttlMap)
 				}
-				
+
+				// Check for partialFilterExpression
+				if pfe, ok := result["partialFilterExpression"]; ok {
+					pfeBytes, err := bson.MarshalExtJSON(pfe, false, false)
+					if err == nil {
+						_ = data.Set("partial_filter_expression", string(pfeBytes))
+					}
+				}
+
+				// Check for hidden
+				if hidden, ok := result["hidden"]; ok {
+					if hiddenBool, isBool := hidden.(bool); isBool {
+						_ = data.Set("hidden", hiddenBool)
+					}
+				} else {
+					_ = data.Set("hidden", false)
+				}
+
 				indexFound = true
 				break
 			}
@@ -206,6 +236,34 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 }
 
 func resourceDatabaseIndexUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	if data.HasChange("hidden") {
+		var config = i.(*MongoDatabaseConfiguration)
+		client, connectionError := MongoClientInit(config)
+		if connectionError != nil {
+			return diag.Errorf("Error connecting to database : %s ", connectionError)
+		}
+
+		db, collectionName, indexName, err := resourceDatabaseIndexParseId(data.State().ID)
+		if err != nil {
+			return diag.Errorf("%s", err)
+		}
+
+		hidden := data.Get("hidden").(bool)
+		dbClient := client.Database(db)
+
+		// Use collMod command to toggle hidden flag (MongoDB 4.4+)
+		result := dbClient.RunCommand(context.Background(), bson.D{
+			{Key: "collMod", Value: collectionName},
+			{Key: "index", Value: bson.D{
+				{Key: "name", Value: indexName},
+				{Key: "hidden", Value: hidden},
+			}},
+		})
+		if result.Err() != nil {
+			return diag.Errorf("Failed to update index hidden state: %s", result.Err())
+		}
+	}
+
 	return resourceDatabaseIndexRead(ctx, data, i)
 }
 
@@ -280,6 +338,20 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 	var name = data.Get("name").(string)
 	if len(name) > 0 {
 		indexOptions.SetName(name)
+	}
+
+	// Handle partialFilterExpression
+	if partialFilter := data.Get("partial_filter_expression").(string); len(partialFilter) > 0 {
+		var filterDoc bson.D
+		if err := bson.UnmarshalExtJSON([]byte(partialFilter), false, &filterDoc); err != nil {
+			return "", diag.Errorf("Invalid partial_filter_expression JSON: %s", err)
+		}
+		indexOptions.SetPartialFilterExpression(filterDoc)
+	}
+
+	// Handle hidden
+	if hidden := data.Get("hidden").(bool); hidden {
+		indexOptions.SetHidden(true)
 	}
 
 	// Create the index model

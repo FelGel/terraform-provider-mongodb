@@ -16,7 +16,7 @@ func TestAccMongoDBIndex_Basic(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-test")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -35,9 +35,9 @@ func TestAccMongoDBIndex_Basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
@@ -49,7 +49,7 @@ func TestAccMongoDBIndex_MultipleFields(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-test")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -70,9 +70,9 @@ func TestAccMongoDBIndex_MultipleFields(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
@@ -84,7 +84,7 @@ func TestAccMongoDBIndex_Compound(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -115,7 +115,7 @@ func TestAccMongoDBIndex_TTLIndex(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-test")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -136,9 +136,9 @@ func TestAccMongoDBIndex_TTLIndex(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
@@ -149,7 +149,7 @@ func TestAccMongoDBIndex_GeneratedName(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -175,7 +175,7 @@ func TestAccMongoDBIndex_Unique(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_index.test"
-	
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
@@ -200,13 +200,275 @@ func TestAccMongoDBIndex_Unique(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"timeout"},
 			},
 		},
 	})
+}
+
+func TestAccMongoDBIndex_PartialFilter(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-partial-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexPartialFilter(databaseName, collectionName, indexName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "db", databaseName),
+					resource.TestCheckResourceAttr(resourceName, "collection", collectionName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					resource.TestCheckResourceAttr(resourceName, "keys.#", "3"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.field", "field_a"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "field_b"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.field", "field_c"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.value", "1"),
+					testAccCheckMongoDBIndexHasPartialFilter(resourceName),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"timeout"},
+			},
+		},
+	})
+}
+
+func TestAccMongoDBIndex_PartialFilterElemMatch(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-pf-elem-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexPartialFilterExists(databaseName, collectionName, indexName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					resource.TestCheckResourceAttr(resourceName, "keys.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.field", "nested.field_a"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.value", "1"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "nested.field_b"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "1"),
+					testAccCheckMongoDBIndexHasPartialFilter(resourceName),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMongoDBIndex_Hidden(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-hidden-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexHidden(databaseName, collectionName, indexName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					resource.TestCheckResourceAttr(resourceName, "hidden", "true"),
+					testAccCheckMongoDBIndexIsHidden(resourceName, true),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"timeout"},
+			},
+		},
+	})
+}
+
+func TestAccMongoDBIndex_HiddenToggle(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-htoggle-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: create index as visible (hidden=false)
+			{
+				Config: testAccMongoDBIndexHidden(databaseName, collectionName, indexName, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "hidden", "false"),
+					testAccCheckMongoDBIndexIsHidden(resourceName, false),
+				),
+			},
+			// Step 2: hide the index in-place (no recreate)
+			{
+				Config: testAccMongoDBIndexHidden(databaseName, collectionName, indexName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "hidden", "true"),
+					testAccCheckMongoDBIndexIsHidden(resourceName, true),
+				),
+			},
+			// Step 3: unhide the index in-place
+			{
+				Config: testAccMongoDBIndexHidden(databaseName, collectionName, indexName, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "hidden", "false"),
+					testAccCheckMongoDBIndexIsHidden(resourceName, false),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMongoDBIndex_PartialFilterAndHidden(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-pfh-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexPartialFilterAndHidden(databaseName, collectionName, indexName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					resource.TestCheckResourceAttr(resourceName, "hidden", "true"),
+					testAccCheckMongoDBIndexHasPartialFilter(resourceName),
+					testAccCheckMongoDBIndexIsHidden(resourceName, true),
+				),
+			},
+		},
+	})
+}
+
+// testAccCheckMongoDBIndexHasPartialFilter verifies the index has a partialFilterExpression in MongoDB
+func testAccCheckMongoDBIndexHasPartialFilter(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource not found: %s", resourceName)
+		}
+
+		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		client, err := MongoClientInit(config)
+		if err != nil {
+			return fmt.Errorf("error connecting to database: %s", err)
+		}
+
+		db, collectionName, indexName, err := resourceDatabaseIndexParseId(rs.Primary.ID)
+		if err != nil {
+			return fmt.Errorf("error parsing ID: %s", err)
+		}
+
+		collectionClient := client.Database(db).Collection(collectionName)
+		indexes, err := collectionClient.Indexes().List(context.Background())
+		if err != nil {
+			return fmt.Errorf("error listing indexes: %s", err)
+		}
+
+		var results []bson.M
+		if err = indexes.All(context.Background(), &results); err != nil {
+			return fmt.Errorf("error getting index results: %s", err)
+		}
+
+		for _, result := range results {
+			if name, ok := result["name"]; ok && name == indexName {
+				if _, hasPFE := result["partialFilterExpression"]; !hasPFE {
+					return fmt.Errorf("index %s does not have partialFilterExpression", indexName)
+				}
+				return nil
+			}
+		}
+
+		return fmt.Errorf("index %s not found in collection %s.%s", indexName, db, collectionName)
+	}
+}
+
+// testAccCheckMongoDBIndexIsHidden verifies the index hidden state in MongoDB
+func testAccCheckMongoDBIndexIsHidden(resourceName string, expectedHidden bool) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource not found: %s", resourceName)
+		}
+
+		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		client, err := MongoClientInit(config)
+		if err != nil {
+			return fmt.Errorf("error connecting to database: %s", err)
+		}
+
+		db, collectionName, indexName, err := resourceDatabaseIndexParseId(rs.Primary.ID)
+		if err != nil {
+			return fmt.Errorf("error parsing ID: %s", err)
+		}
+
+		collectionClient := client.Database(db).Collection(collectionName)
+		indexes, err := collectionClient.Indexes().List(context.Background())
+		if err != nil {
+			return fmt.Errorf("error listing indexes: %s", err)
+		}
+
+		var results []bson.M
+		if err = indexes.All(context.Background(), &results); err != nil {
+			return fmt.Errorf("error getting index results: %s", err)
+		}
+
+		for _, result := range results {
+			if name, ok := result["name"]; ok && name == indexName {
+				hidden, hasHidden := result["hidden"]
+				if expectedHidden {
+					if !hasHidden {
+						return fmt.Errorf("index %s expected to be hidden but 'hidden' field not present", indexName)
+					}
+					if hiddenBool, isBool := hidden.(bool); !isBool || !hiddenBool {
+						return fmt.Errorf("index %s expected hidden=true, got %v", indexName, hidden)
+					}
+				} else {
+					// When not hidden, MongoDB may omit the field entirely or set it to false
+					if hasHidden {
+						if hiddenBool, isBool := hidden.(bool); isBool && hiddenBool {
+							return fmt.Errorf("index %s expected hidden=false, got true", indexName)
+						}
+					}
+				}
+				return nil
+			}
+		}
+
+		return fmt.Errorf("index %s not found in collection %s.%s", indexName, db, collectionName)
+	}
 }
 
 func testAccCheckMongoDBIndexExists(resourceName string) resource.TestCheckFunc {
@@ -450,6 +712,121 @@ resource "mongodb_db_index" "test" {
     field = "unique"
     value = "true"
   }
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName)
+}
+
+func testAccMongoDBIndexPartialFilter(dbName, collectionName, indexName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "field_a"
+    value = "1"
+  }
+  keys {
+    field = "field_b"
+    value = "1"
+  }
+  keys {
+    field = "field_c"
+    value = "1"
+  }
+  partial_filter_expression = jsonencode({
+    "field_a" = { "$exists" = true }
+  })
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName)
+}
+
+func testAccMongoDBIndexPartialFilterExists(dbName, collectionName, indexName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "nested.field_a"
+    value = "1"
+  }
+  keys {
+    field = "nested.field_b"
+    value = "1"
+  }
+  partial_filter_expression = jsonencode({
+    "nested" = { "$exists" = true }
+  })
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName)
+}
+
+func testAccMongoDBIndexHidden(dbName, collectionName, indexName string, hidden bool) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "field_x"
+    value = "1"
+  }
+  keys {
+    field = "field_y"
+    value = "1"
+  }
+  hidden  = %t
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName, hidden)
+}
+
+func testAccMongoDBIndexPartialFilterAndHidden(dbName, collectionName, indexName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "nested.field_c"
+    value = "1"
+  }
+  partial_filter_expression = jsonencode({
+    "nested.field_c" = { "$exists" = true }
+  })
+  hidden  = true
   timeout = 30
 }
 `, dbName, collectionName, dbName, collectionName, indexName)
