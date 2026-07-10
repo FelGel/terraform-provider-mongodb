@@ -101,6 +101,7 @@ func resourceDatabaseUser() *schema.Resource {
 			"password": {
 				Type:      schema.TypeString,
 				Optional:  true,
+				Computed:  true,
 				Sensitive: true,
 			},
 			"auth_mechanism": {
@@ -272,14 +273,18 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 	if dataSetError != nil {
 		return diag.Errorf("error setting password : %s ", dataSetError)
 	}
-	// Detect IAM users from the mechanisms field returned by MongoDB
+	// IAM users live in $external; the mechanisms field isn't returned for
+	// external users, so detect by database and fall back to mechanisms.
+	isIAM := database == "$external"
 	for _, m := range result.Users[0].Mechanisms {
 		if m == "MONGODB-AWS" {
-			dataSetError = data.Set("auth_mechanism", "MONGODB-AWS")
-			if dataSetError != nil {
-				return diag.Errorf("error setting auth_mechanism : %s ", dataSetError)
-			}
+			isIAM = true
 			break
+		}
+	}
+	if isIAM {
+		if dataSetError = data.Set("auth_mechanism", "MONGODB-AWS"); dataSetError != nil {
+			return diag.Errorf("error setting auth_mechanism : %s ", dataSetError)
 		}
 	}
 	data.SetId(stateID)
