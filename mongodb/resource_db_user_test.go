@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
@@ -264,6 +265,88 @@ func TestAccMongoDBUser_StateUpgradeFromPublished(t *testing.T) {
 			},
 		},
 	})
+}
+
+// TestAccMongoDBUser_PasswordWriteOnly creates a user with the write-only
+// password_wo, asserts the secret is never persisted to state, and that
+// bumping password_wo_version rotates it (triggers an update) without leaking.
+func TestAccMongoDBUser_PasswordWriteOnly(t *testing.T) {
+	userName := acctest.RandomWithPrefix("tf-acc-wo")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBUserPasswordWO(dbName, userName, acctest.RandomWithPrefix("wo-pass"), "1"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+					resource.TestCheckResourceAttr(resourceName, "password_wo_version", "1"),
+					// write-only value must never be persisted to state
+					resource.TestCheckNoResourceAttr(resourceName, "password_wo"),
+				),
+			},
+			{
+				Config: testAccMongoDBUserPasswordWO(dbName, userName, acctest.RandomWithPrefix("wo-pass2"), "2"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "password_wo_version", "2"),
+					resource.TestCheckNoResourceAttr(resourceName, "password_wo"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccMongoDBUser_PasswordConflict verifies password and password_wo cannot
+// both be set.
+func TestAccMongoDBUser_PasswordConflict(t *testing.T) {
+	userName := acctest.RandomWithPrefix("tf-acc-conf")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+resource "mongodb_db_user" "test" {
+  auth_database       = "%s"
+  name                = "%s"
+  password            = "pw"
+  password_wo         = "wopw"
+  password_wo_version = "1"
+
+  role {
+    db   = "%s"
+    role = "read"
+  }
+}
+`, dbName, userName, dbName),
+				ExpectError: regexp.MustCompile(`mutually exclusive`),
+			},
+		},
+	})
+}
+
+func testAccMongoDBUserPasswordWO(dbName, userName, password, version string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_user" "test" {
+  auth_database       = "%s"
+  name                = "%s"
+  password_wo         = "%s"
+  password_wo_version = "%s"
+
+  role {
+    db   = "%s"
+    role = "readWrite"
+  }
+}
+`, dbName, userName, password, version, dbName)
 }
 
 func testAccMongoDBUserBasic(dbName, userName, password string) string {
