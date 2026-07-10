@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -12,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -46,11 +49,11 @@ type dbUserResource struct {
 func newDBUserResource() resource.Resource { return &dbUserResource{} }
 
 var (
-	_ resource.Resource                   = &dbUserResource{}
-	_ resource.ResourceWithConfigure      = &dbUserResource{}
-	_ resource.ResourceWithImportState    = &dbUserResource{}
-	_ resource.ResourceWithModifyPlan     = &dbUserResource{}
-	_ resource.ResourceWithValidateConfig = &dbUserResource{}
+	_ resource.Resource                     = &dbUserResource{}
+	_ resource.ResourceWithConfigure        = &dbUserResource{}
+	_ resource.ResourceWithImportState      = &dbUserResource{}
+	_ resource.ResourceWithModifyPlan       = &dbUserResource{}
+	_ resource.ResourceWithConfigValidators = &dbUserResource{}
 )
 
 func (r *dbUserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -83,6 +86,10 @@ func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:  true,
 				Sensitive: true,
 				WriteOnly: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("password")),
+					stringvalidator.AlsoRequires(path.MatchRoot("password_wo_version")),
+				},
 			},
 			"password_wo_version": schema.StringAttribute{
 				Optional: true,
@@ -116,28 +123,17 @@ func (r *dbUserResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.config = config
 }
 
-// ValidateConfig enforces the password / password_wo rules that can be checked
-// from config alone.
-func (r *dbUserResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var cfg dbUserResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	hasPassword := !cfg.Password.IsNull()
-	hasWO := !cfg.PasswordWO.IsNull()
-
-	if hasPassword && hasWO {
-		resp.Diagnostics.AddAttributeError(path.Root("password_wo"), "Conflicting attributes",
-			`"password" and "password_wo" are mutually exclusive; set only one`)
-	}
-	if hasWO && cfg.PasswordWOVersion.IsNull() {
-		resp.Diagnostics.AddAttributeError(path.Root("password_wo_version"), "Missing attribute",
-			`"password_wo_version" is required when "password_wo" is set (it is the trigger used to rotate the write-only password)`)
-	}
-	if hasWO && cfg.AuthMechanism.ValueString() == "MONGODB-AWS" {
-		resp.Diagnostics.AddAttributeError(path.Root("password_wo"), "Conflicting attributes",
-			`"password_wo" must not be set when auth_mechanism is "MONGODB-AWS"`)
+// ConfigValidators nudges practitioners toward the write-only password when the
+// plaintext `password` is set (HashiCorp's recommended pairing). The hard
+// mutual-exclusion and "version required" rules are attribute validators on
+// password_wo; the IAM (MONGODB-AWS) rejection is handled in ModifyPlan via
+// validateDBUserDiff on the effective password.
+func (r *dbUserResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.PreferWriteOnlyAttribute(
+			path.MatchRoot("password"),
+			path.MatchRoot("password_wo"),
+		),
 	}
 }
 

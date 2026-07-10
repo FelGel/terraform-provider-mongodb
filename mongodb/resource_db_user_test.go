@@ -327,7 +327,7 @@ resource "mongodb_db_user" "test" {
   }
 }
 `, dbName, userName, dbName),
-				ExpectError: regexp.MustCompile(`mutually exclusive`),
+				ExpectError: regexp.MustCompile(`cannot be specified when`),
 			},
 		},
 	})
