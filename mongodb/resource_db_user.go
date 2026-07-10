@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -17,6 +18,7 @@ import (
 func customizeDiffDBUser(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
 	authMechanism := d.Get("auth_mechanism").(string)
 	password := d.Get("password").(string)
+	name := d.Get("name").(string)
 
 	// On update, suppress password diffs for IAM users instead of erroring —
 	// the password field is irrelevant for MONGODB-AWS (Requirement 4.2).
@@ -31,7 +33,18 @@ func customizeDiffDBUser(_ context.Context, d *schema.ResourceDiff, _ interface{
 		return err
 	}
 
+	// IAM users: name must be a valid ARN (cross-field, so not a ValidateDiagFunc).
+	if authMechanism == "MONGODB-AWS" {
+		if diags := validateIAMARN(name, cty.Path{}); diags.HasError() {
+			return fmt.Errorf("%s", diags[0].Summary)
+		}
+	}
+
 	currentAuthDB := d.Get("auth_database").(string)
+	// IAM users may omit auth_database (forced to "$external"); password users must set it.
+	if authMechanism != "MONGODB-AWS" && currentAuthDB == "" {
+		return fmt.Errorf("auth_database is required when auth_mechanism is not set")
+	}
 	if resolved := resolveAuthDatabase(authMechanism, currentAuthDB); resolved != currentAuthDB {
 		return d.SetNew("auth_database", resolved)
 	}
@@ -77,7 +90,8 @@ func resourceDatabaseUser() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"auth_database": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				Computed: true,
 			},
 			"name": {
 				Type:     schema.TypeString,
@@ -122,16 +136,11 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var stateId = data.State().ID
-	var database = data.Get("auth_database").(string)
-
-	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
+	// SplitN (via parseId) keeps dotted usernames intact, e.g. IAM ARNs.
+	userName, database, parseErr := resourceDatabaseUserParseId(stateId)
+	if parseErr != nil {
+		return diag.Errorf("%s", parseErr)
 	}
-
-	// StateID is a concatenation of database and username. We only use the username here.
-	splitId := strings.Split(string(id), ".")
-	userName := splitId[1]
 
 	adminDB := client.Database(database)
 
