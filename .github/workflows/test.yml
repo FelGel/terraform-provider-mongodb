@@ -1,4 +1,4 @@
-name: Run Tests
+name: Tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -6,41 +6,105 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    name: Acceptance Tests
+  build:
+    name: Build, Vet & Tidy
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: true
-      
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Verify go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          if [ -n "$(git status --porcelain -- go.mod go.sum)" ]; then
+            echo "::error::go.mod/go.sum are not tidy. Run 'go mod tidy' and commit the result."
+            git diff -- go.mod go.sum
+            exit 1
+          fi
+
+  unit:
+    name: Unit & Property Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      # No TF_ACC and no MongoDB: acceptance tests self-skip, so this job runs
+      # only the fast validator and rapid property-based tests. It gates every PR
+      # even when the acceptance job (which needs a database) is unavailable.
+      - name: Run unit tests
+        run: go test -v -short ./... -timeout 5m
+
+  acceptance:
+    name: Acceptance Tests (MongoDB ${{ matrix.mongodb }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Single version for now; add tags here to fan out across MongoDB versions.
+        mongodb: ["7.0.29"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      # Install Terraform on the runner so the SDK test harness discovers it
+      # (fs.AnyVersion) instead of downloading + GPG-verifying its own copy,
+      # which fails on the expired HashiCorp signing key pinned via hc-install.
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
       - name: Start MongoDB
+        env:
+          MONGODB_VERSION: ${{ matrix.mongodb }}
         run: |
           cd docker
           docker compose up -d mongo
           # Wait for MongoDB to be ready
           timeout 60 bash -c 'until docker exec mongo mongosh --eval "db.adminCommand({ping: 1})" >/dev/null 2>&1; do sleep 2; done'
-          echo "MongoDB is ready"
-      
-      - name: Run Unit Tests
-        run: go test -v ./mongodb/ -short
-      
+          echo "MongoDB ${MONGODB_VERSION} is ready"
+
       - name: Run Acceptance Tests
         env:
           TF_ACC: "1"
           MONGO_HOST: localhost
           MONGO_USR: root
           MONGO_PWD: root
-        run: |
-          go test -v -run "TestAcc.*" -timeout 30m ./mongodb/
-      
+        run: go test -v -run "TestAcc.*" -timeout 30m ./mongodb/
+
       - name: Stop MongoDB
         if: always()
         run: |
