@@ -359,6 +359,10 @@ func (r *dbIndexResource) readIndexInto(client *mongo.Client, m *dbIndexResource
 			if pfeBytes, marshalErr := bson.MarshalExtJSON(pfe, false, false); marshalErr == nil {
 				m.PartialFilterExpression = types.StringValue(string(pfeBytes))
 			}
+		} else {
+			// No partial filter on the index: pin to "" (the default) so state
+			// matches create-time and import round-trips without a diff.
+			m.PartialFilterExpression = types.StringValue("")
 		}
 		if hidden, ok := result["hidden"]; ok {
 			if hiddenBool, isBool := hidden.(bool); isBool {
