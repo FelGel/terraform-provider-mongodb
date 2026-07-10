@@ -19,7 +19,7 @@ func TestAccMongoDBUser_Basic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -50,7 +50,7 @@ func TestAccMongoDBUser_MultipleRoles(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -100,7 +100,7 @@ func TestAccMongoDBUser_Update(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -134,7 +134,7 @@ func TestAccMongoDBUser_AdminDatabase(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -168,7 +168,7 @@ func testAccCheckMongoDBUserExists(resourceName string) resource.TestCheckFunc {
 			return fmt.Errorf("no ID is set")
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -193,7 +193,7 @@ func testAccCheckMongoDBUserExists(resourceName string) resource.TestCheckFunc {
 }
 
 func testAccCheckMongoDBUserDestroy(s *terraform.State) error {
-	config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+	config := testAccMongoConfig()
 	client, err := MongoClientInit(config)
 	if err != nil {
 		return fmt.Errorf("error connecting to database: %s", err)
@@ -230,6 +230,40 @@ func testAccCheckMongoDBUserDestroy(s *terraform.State) error {
 	}
 
 	return nil
+}
+
+// TestAccMongoDBUser_StateUpgradeFromPublished creates a password user with the
+// last published SDKv2 release (FelGel/mongodb 2.0.4), then plans the same
+// config with this framework-backed build and asserts an empty plan. This is
+// the real state-upgrade guarantee: state written by the old resource must
+// round-trip through the migrated resource with no diff.
+func TestAccMongoDBUser_StateUpgradeFromPublished(t *testing.T) {
+	userName := acctest.RandomWithPrefix("tf-acc-upgrade")
+	password := acctest.RandomWithPrefix("tf-acc-pwd")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		CheckDestroy: testAccCheckMongoDBUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				ExternalProviders: map[string]resource.ExternalProvider{
+					"mongodb": {Source: "FelGel/mongodb", VersionConstraint: "2.0.4"},
+				},
+				Config: testAccMongoDBUserBasic(dbName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+				),
+			},
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   testAccMongoDBUserBasic(dbName, userName, password),
+				PlanOnly:                 true,
+			},
+		},
+	})
 }
 
 func testAccMongoDBUserBasic(dbName, userName, password string) string {
@@ -350,7 +384,7 @@ func TestAccMongoDBUser_IAMBasic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -382,7 +416,7 @@ func TestAccMongoDBUser_IAMUpdateRoles(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -415,7 +449,7 @@ func TestAccMongoDBUser_IAMPasswordIgnored(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			// Step 1: create the IAM user without a password — should succeed.
@@ -453,7 +487,7 @@ func TestAccMongoDBUser_BackwardCompat(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
