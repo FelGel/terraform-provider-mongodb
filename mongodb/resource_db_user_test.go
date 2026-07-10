@@ -232,6 +232,40 @@ func testAccCheckMongoDBUserDestroy(s *terraform.State) error {
 	return nil
 }
 
+// TestAccMongoDBUser_StateUpgradeFromPublished creates a password user with the
+// last published SDKv2 release (FelGel/mongodb 2.0.4), then plans the same
+// config with this framework-backed build and asserts an empty plan. This is
+// the real state-upgrade guarantee: state written by the old resource must
+// round-trip through the migrated resource with no diff.
+func TestAccMongoDBUser_StateUpgradeFromPublished(t *testing.T) {
+	userName := acctest.RandomWithPrefix("tf-acc-upgrade")
+	password := acctest.RandomWithPrefix("tf-acc-pwd")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		CheckDestroy: testAccCheckMongoDBUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				ExternalProviders: map[string]resource.ExternalProvider{
+					"mongodb": {Source: "FelGel/mongodb", VersionConstraint: "2.0.4"},
+				},
+				Config: testAccMongoDBUserBasic(dbName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+				),
+			},
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   testAccMongoDBUserBasic(dbName, userName, password),
+				PlanOnly:                 true,
+			},
+		},
+	})
+}
+
 func testAccMongoDBUserBasic(dbName, userName, password string) string {
 	return fmt.Sprintf(`
 resource "mongodb_db_user" "test" {
