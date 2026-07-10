@@ -3,6 +3,7 @@ package mongodb
 import (
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -52,4 +53,33 @@ func SetId(data *schema.ResourceData, parts []string) {
 	id := strings.Join(parts, ".")
 	encoded := base64.StdEncoding.EncodeToString([]byte(id))
 	data.SetId(encoded)
+}
+
+// validateAuthMechanism validates the auth_mechanism field.
+// Only "MONGODB-AWS" and "" (empty) are accepted.
+func validateAuthMechanism(v interface{}, path cty.Path) diag.Diagnostics {
+	val, _ := v.(string)
+	if val == "MONGODB-AWS" || val == "" {
+		return nil
+	}
+	return diag.Diagnostics{{
+		Severity:      diag.Error,
+		Summary:       fmt.Sprintf(`auth_mechanism must be "MONGODB-AWS" or empty; got %q`, val),
+		AttributePath: path,
+	}}
+}
+
+var iamARNRegex = regexp.MustCompile(`^arn:aws:iam::\d{12}:(user|role)/[\w+=,.@/-]+$`)
+
+// validateIAMARN validates that a name is a valid IAM ARN when using MONGODB-AWS.
+func validateIAMARN(v interface{}, path cty.Path) diag.Diagnostics {
+	val, _ := v.(string)
+	if iamARNRegex.MatchString(val) {
+		return nil
+	}
+	return diag.Diagnostics{{
+		Severity:      diag.Error,
+		Summary:       `name must be a valid IAM ARN (arn:aws:iam::<account-id>:(user|role)/<name>) when auth_mechanism is "MONGODB-AWS"`,
+		AttributePath: path,
+	}}
 }
