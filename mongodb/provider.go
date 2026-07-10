@@ -97,7 +97,8 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"mongodb_db_user":       resourceDatabaseUser(),
+			// mongodb_db_user is served by the terraform-plugin-framework half
+			// (see framework_db_user.go); it must not also be registered here.
 			"mongodb_db_role":       resourceDatabaseRole(),
 			"mongodb_db_collection": resourceDatabaseCollection(),
 			"mongodb_db_index":      resourceDatabaseIndex(),

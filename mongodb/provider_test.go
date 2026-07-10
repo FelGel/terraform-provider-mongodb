@@ -5,11 +5,40 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 var testAccProviderFactories map[string]func() (*schema.Provider, error)
 var testAccProvider *schema.Provider
+
+// testAccProtoV6ProviderFactories serves the muxed provider (SDKv2 + framework)
+// over protocol 6. Framework-backed resources (mongodb_db_user) use this.
+var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"mongodb": func() (tfprotov6.ProviderServer, error) {
+		factory, err := MuxServerFactory(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		return factory(), nil
+	},
+}
+
+// testAccMongoConfig builds a client config from the test environment. Check
+// functions use this instead of testAccProvider.Meta(), which is not populated
+// when a resource is exercised through the muxed protocol-6 factory.
+func testAccMongoConfig() *MongoDatabaseConfiguration {
+	return &MongoDatabaseConfiguration{
+		Config: &ClientConfig{
+			Host:     getEnvWithDefault("MONGO_HOST", "127.0.0.1"),
+			Port:     getEnvWithDefault("MONGO_PORT", "27017"),
+			Username: getEnvWithDefault("MONGO_USR", "root"),
+			Password: getEnvWithDefault("MONGO_PWD", "root"),
+			DB:       getEnvWithDefault("MONGO_AUTH_DB", "admin"),
+		},
+		MaxConnLifetime: 10,
+	}
+}
 
 func init() {
 	testAccProvider = Provider()
