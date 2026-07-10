@@ -18,7 +18,7 @@ func TestAccMongoDBRole_Basic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -46,7 +46,7 @@ func TestAccMongoDBRole_WithInheritedRoles(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -75,7 +75,7 @@ func TestAccMongoDBRole_MultiplePrivileges(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -107,7 +107,7 @@ func testAccCheckMongoDBRoleExists(resourceName string) resource.TestCheckFunc {
 			return fmt.Errorf("no ID is set")
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -132,7 +132,7 @@ func testAccCheckMongoDBRoleExists(resourceName string) resource.TestCheckFunc {
 }
 
 func testAccCheckMongoDBRoleDestroy(s *terraform.State) error {
-	config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+	config := testAccMongoConfig()
 	client, err := MongoClientInit(config)
 	if err != nil {
 		return fmt.Errorf("error connecting to database: %s", err)

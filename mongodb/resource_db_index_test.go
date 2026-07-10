@@ -19,7 +19,7 @@ func TestAccMongoDBIndex_Basic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -52,7 +52,7 @@ func TestAccMongoDBIndex_MultipleFields(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -87,7 +87,7 @@ func TestAccMongoDBIndex_Compound(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -118,7 +118,7 @@ func TestAccMongoDBIndex_TTLIndex(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -152,7 +152,7 @@ func TestAccMongoDBIndex_GeneratedName(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -178,7 +178,7 @@ func TestAccMongoDBIndex_Unique(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -217,7 +217,7 @@ func TestAccMongoDBIndex_PartialFilter(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -255,7 +255,7 @@ func TestAccMongoDBIndex_PartialFilterElemMatch(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -283,7 +283,7 @@ func TestAccMongoDBIndex_Hidden(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -313,7 +313,7 @@ func TestAccMongoDBIndex_HiddenToggle(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			// Step 1: create index as visible (hidden=false)
@@ -355,7 +355,7 @@ func TestAccMongoDBIndex_PartialFilterAndHidden(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -380,7 +380,7 @@ func testAccCheckMongoDBIndexHasPartialFilter(resourceName string) resource.Test
 			return fmt.Errorf("resource not found: %s", resourceName)
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -423,7 +423,7 @@ func testAccCheckMongoDBIndexIsHidden(resourceName string, expectedHidden bool) 
 			return fmt.Errorf("resource not found: %s", resourceName)
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -482,7 +482,7 @@ func testAccCheckMongoDBIndexExists(resourceName string) resource.TestCheckFunc 
 			return fmt.Errorf("no ID is set")
 		}
 
-		config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+		config := testAccMongoConfig()
 		client, err := MongoClientInit(config)
 		if err != nil {
 			return fmt.Errorf("error connecting to database: %s", err)
@@ -521,7 +521,7 @@ func testAccCheckMongoDBIndexExists(resourceName string) resource.TestCheckFunc 
 }
 
 func testAccCheckMongoDBIndexDestroy(s *terraform.State) error {
-	config := testAccProvider.Meta().(*MongoDatabaseConfiguration)
+	config := testAccMongoConfig()
 	client, err := MongoClientInit(config)
 	if err != nil {
 		return fmt.Errorf("error connecting to database: %s", err)

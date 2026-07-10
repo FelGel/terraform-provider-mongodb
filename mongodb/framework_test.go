@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	sdkschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 // TestMuxProviderSchema verifies the SDKv2 and framework provider halves expose
@@ -30,46 +31,61 @@ func TestMuxProviderSchema(t *testing.T) {
 			t.Errorf("provider schema diagnostic: %s — %s", d.Summary, d.Detail)
 		}
 	}
-	if _, ok := resp.ResourceSchemas["mongodb_db_user"]; !ok {
-		t.Error("mongodb_db_user not present in muxed provider schema")
+	for _, typ := range []string{"mongodb_db_user", "mongodb_db_role", "mongodb_db_collection", "mongodb_db_index"} {
+		if _, ok := resp.ResourceSchemas[typ]; !ok {
+			t.Errorf("%s not present in muxed provider schema", typ)
+		}
 	}
 }
 
-// TestDBUserStateShapeUnchanged is a state-compatibility guard for the SDKv2 ->
-// framework migration. A true registry-based upgrade test isn't possible (this
-// fork is unpublished), so instead we assert the framework db_user schema has
-// the same attribute names and types as the retained SDKv2 schema. If they
-// diverge, existing state written by the SDKv2 resource would not round-trip
-// through the framework resource (spurious diffs / plan errors on upgrade).
-func TestDBUserStateShapeUnchanged(t *testing.T) {
+// TestResourceStateShapeUnchanged is the state-compatibility guard for the
+// SDKv2 -> framework migration. For each migrated resource it asserts the
+// framework schema has the same attribute names and types as the retained
+// SDKv2 schema. Divergence would mean existing SDKv2-written state fails to
+// round-trip through the framework resource (spurious diffs / plan errors on
+// upgrade). No database needed.
+func TestResourceStateShapeUnchanged(t *testing.T) {
 	ctx := context.Background()
-
-	sdkType := resourceDatabaseUser().CoreConfigSchema().ImpliedType()
-	sdkKinds := map[string]string{}
-	for name, at := range sdkType.AttributeTypes() {
-		sdkKinds[name] = ctyKind(at)
+	cases := []struct {
+		name string
+		sdk  *sdkschema.Resource
+		fw   resource.Resource
+	}{
+		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource()},
+		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource()},
+		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource()},
+		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource()},
 	}
 
-	var resp resource.SchemaResponse
-	newDBUserResource().Schema(ctx, resource.SchemaRequest{}, &resp)
-	fwObj, ok := resp.Schema.Type().TerraformType(ctx).(tftypes.Object)
-	if !ok {
-		t.Fatal("framework schema type is not an object")
-	}
-	fwKinds := map[string]string{}
-	for name, at := range fwObj.AttributeTypes {
-		fwKinds[name] = tfKind(at)
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sdkKinds := map[string]string{}
+			for name, at := range tc.sdk.CoreConfigSchema().ImpliedType().AttributeTypes() {
+				sdkKinds[name] = ctyKind(at)
+			}
 
-	for name, kind := range sdkKinds {
-		if fwKinds[name] != kind {
-			t.Errorf("attribute %q: SDKv2 shape %q, framework shape %q — state upgrade would diff", name, kind, fwKinds[name])
-		}
-	}
-	for name := range fwKinds {
-		if _, present := sdkKinds[name]; !present {
-			t.Errorf("framework has attribute %q absent from SDKv2 schema — new state field", name)
-		}
+			var resp resource.SchemaResponse
+			tc.fw.Schema(ctx, resource.SchemaRequest{}, &resp)
+			fwObj, ok := resp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+			if !ok {
+				t.Fatal("framework schema type is not an object")
+			}
+			fwKinds := map[string]string{}
+			for name, at := range fwObj.AttributeTypes {
+				fwKinds[name] = tfKind(at)
+			}
+
+			for name, kind := range sdkKinds {
+				if fwKinds[name] != kind {
+					t.Errorf("attribute %q: SDKv2 shape %q, framework shape %q — state upgrade would diff", name, kind, fwKinds[name])
+				}
+			}
+			for name := range fwKinds {
+				if _, present := sdkKinds[name]; !present {
+					t.Errorf("framework has attribute %q absent from SDKv2 schema — new state field", name)
+				}
+			}
+		})
 	}
 }
 
