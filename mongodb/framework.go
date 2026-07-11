@@ -118,6 +118,8 @@ func (p *frameworkProvider) ListResources(_ context.Context) []func() list.ListR
 	return []func() list.ListResource{
 		newDBUserListResource,
 		newDBRoleListResource,
+		newDBCollectionListResource,
+		newDBIndexListResource,
 	}
 }
 

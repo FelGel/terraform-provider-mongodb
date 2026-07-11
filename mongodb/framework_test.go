@@ -55,7 +55,7 @@ func TestMuxListResources(t *testing.T) {
 			t.Errorf("provider schema diagnostic: %s — %s", d.Summary, d.Detail)
 		}
 	}
-	for _, typ := range []string{"mongodb_db_user", "mongodb_db_role"} {
+	for _, typ := range []string{"mongodb_db_user", "mongodb_db_role", "mongodb_db_collection", "mongodb_db_index"} {
 		if _, ok := resp.ListResourceSchemas[typ]; !ok {
 			got := make([]string, 0, len(resp.ListResourceSchemas))
 			for k := range resp.ListResourceSchemas {
