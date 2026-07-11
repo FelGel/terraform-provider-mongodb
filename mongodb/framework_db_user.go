@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -54,10 +55,19 @@ var (
 	_ resource.ResourceWithImportState      = &dbUserResource{}
 	_ resource.ResourceWithModifyPlan       = &dbUserResource{}
 	_ resource.ResourceWithConfigValidators = &dbUserResource{}
+	_ resource.ResourceWithIdentity         = &dbUserResource{}
 )
 
 func (r *dbUserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_db_user"
+}
+
+func (r *dbUserResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"id": identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
 }
 
 func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -252,6 +262,7 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 		resp.Diagnostics.AddError("Error reading user after create", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -274,6 +285,7 @@ func (r *dbUserResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 	state.Password = prevPassword
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -329,6 +341,7 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 		resp.Diagnostics.AddError("Error reading user after update", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
