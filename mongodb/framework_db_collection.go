@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -34,10 +35,19 @@ var (
 	_ resource.Resource                = &dbCollectionResource{}
 	_ resource.ResourceWithConfigure   = &dbCollectionResource{}
 	_ resource.ResourceWithImportState = &dbCollectionResource{}
+	_ resource.ResourceWithIdentity    = &dbCollectionResource{}
 )
 
 func (r *dbCollectionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_db_collection"
+}
+
+func (r *dbCollectionResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"id": identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
 }
 
 func (r *dbCollectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -116,6 +126,7 @@ func (r *dbCollectionResource) Create(ctx context.Context, req resource.CreateRe
 		resp.Diagnostics.AddError("Error reading collection after create", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -143,6 +154,7 @@ func (r *dbCollectionResource) Read(ctx context.Context, req resource.ReadReques
 	} else {
 		state.DeletionProtection = prevDeletionProtection
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -176,6 +188,7 @@ func (r *dbCollectionResource) Update(ctx context.Context, req resource.UpdateRe
 		resp.Diagnostics.AddError("Error reading collection after update", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
@@ -55,10 +56,19 @@ var (
 	_ resource.Resource                = &dbIndexResource{}
 	_ resource.ResourceWithConfigure   = &dbIndexResource{}
 	_ resource.ResourceWithImportState = &dbIndexResource{}
+	_ resource.ResourceWithIdentity    = &dbIndexResource{}
 )
 
 func (r *dbIndexResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_db_index"
+}
+
+func (r *dbIndexResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"id": identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
 }
 
 func (r *dbIndexResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -158,6 +168,7 @@ func (r *dbIndexResource) Create(ctx context.Context, req resource.CreateRequest
 		resp.Diagnostics.AddError("Error reading index after create", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: plan.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -178,6 +189,7 @@ func (r *dbIndexResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.Diagnostics.AddError("Error reading index", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: state.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -219,6 +231,7 @@ func (r *dbIndexResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError("Error reading index after update", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, dbUserIdentityModel{ID: plan.ID})...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
