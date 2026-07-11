@@ -38,6 +38,32 @@ func TestMuxProviderSchema(t *testing.T) {
 	}
 }
 
+// TestMuxListResources verifies the mux server actually serves the framework
+// list resource(s) — i.e. that terraform-plugin-mux propagates list resources.
+func TestMuxListResources(t *testing.T) {
+	ctx := context.Background()
+	factory, err := MuxServerFactory(ctx)
+	if err != nil {
+		t.Fatalf("MuxServerFactory: %s", err)
+	}
+	resp, err := factory().GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
+	if err != nil {
+		t.Fatalf("GetProviderSchema: %s", err)
+	}
+	for _, d := range resp.Diagnostics {
+		if d.Severity == tfprotov6.DiagnosticSeverityError {
+			t.Errorf("provider schema diagnostic: %s — %s", d.Summary, d.Detail)
+		}
+	}
+	if _, ok := resp.ListResourceSchemas["mongodb_db_user"]; !ok {
+		got := make([]string, 0, len(resp.ListResourceSchemas))
+		for k := range resp.ListResourceSchemas {
+			got = append(got, k)
+		}
+		t.Errorf("mongodb_db_user not served as a list resource through the mux; list schemas present: %v", got)
+	}
+}
+
 // TestResourceStateShapeUnchanged is the state-compatibility guard for the
 // SDKv2 -> framework migration. For each migrated resource it asserts the
 // framework schema has the same attribute names and types as the retained

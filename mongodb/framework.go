@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -109,6 +110,14 @@ func (p *frameworkProvider) Configure(ctx context.Context, req provider.Configur
 
 	mc := &MongoDatabaseConfiguration{Config: &clientConfig, MaxConnLifetime: 10}
 	resp.ResourceData = mc
+	// List resources receive provider data from a separate field.
+	resp.ListResourceData = mc
+}
+
+func (p *frameworkProvider) ListResources(_ context.Context) []func() list.ListResource {
+	return []func() list.ListResource{
+		newDBUserListResource,
+	}
 }
 
 func (p *frameworkProvider) Resources(_ context.Context) []func() resource.Resource {
