@@ -55,12 +55,14 @@ func TestMuxListResources(t *testing.T) {
 			t.Errorf("provider schema diagnostic: %s — %s", d.Summary, d.Detail)
 		}
 	}
-	if _, ok := resp.ListResourceSchemas["mongodb_db_user"]; !ok {
-		got := make([]string, 0, len(resp.ListResourceSchemas))
-		for k := range resp.ListResourceSchemas {
-			got = append(got, k)
+	for _, typ := range []string{"mongodb_db_user", "mongodb_db_role"} {
+		if _, ok := resp.ListResourceSchemas[typ]; !ok {
+			got := make([]string, 0, len(resp.ListResourceSchemas))
+			for k := range resp.ListResourceSchemas {
+				got = append(got, k)
+			}
+			t.Errorf("%s not served as a list resource through the mux; list schemas present: %v", typ, got)
 		}
-		t.Errorf("mongodb_db_user not served as a list resource through the mux; list schemas present: %v", got)
 	}
 }
 

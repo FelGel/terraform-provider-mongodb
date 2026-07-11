@@ -117,6 +117,7 @@ func (p *frameworkProvider) Configure(ctx context.Context, req provider.Configur
 func (p *frameworkProvider) ListResources(_ context.Context) []func() list.ListResource {
 	return []func() list.ListResource{
 		newDBUserListResource,
+		newDBRoleListResource,
 	}
 }
 

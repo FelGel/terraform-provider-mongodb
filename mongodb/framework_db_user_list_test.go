@@ -50,6 +50,56 @@ list "mongodb_db_user" "test" {
 	})
 }
 
+// TestAccMongoDBRole_list creates a custom role, runs a query against the
+// mongodb_db_role list resource, and asserts the role appears in the results.
+func TestAccMongoDBRole_list(t *testing.T) {
+	roleName := acctest.RandomWithPrefix("tf-acc-role-list")
+	wantID := base64.StdEncoding.EncodeToString([]byte("admin." + roleName))
+
+	resource.Test(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_14_0),
+		},
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBRoleListConfig(roleName),
+			},
+			{
+				Query: true,
+				Config: `
+provider "mongodb" {}
+
+list "mongodb_db_role" "test" {
+  provider = mongodb
+}
+`,
+				QueryResultChecks: []querycheck.QueryResultCheck{
+					querycheck.ExpectIdentity("mongodb_db_role.test", map[string]knownvalue.Check{
+						"id": knownvalue.StringExact(wantID),
+					}),
+				},
+			},
+		},
+	})
+}
+
+func testAccMongoDBRoleListConfig(roleName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_role" "test" {
+  database = "admin"
+  name     = %[1]q
+
+  privilege {
+    db         = "admin"
+    collection = ""
+    actions    = ["find"]
+  }
+}
+`, roleName)
+}
+
 func testAccMongoDBUserListConfig(userName, password string) string {
 	return fmt.Sprintf(`
 resource "mongodb_db_user" "test" {
