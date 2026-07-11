@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -19,9 +20,9 @@ func TestAccMongoDBUser_Basic(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserBasic(databaseName, userName, password),
@@ -34,9 +35,9 @@ func TestAccMongoDBUser_Basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password"},
 			},
 		},
@@ -50,9 +51,9 @@ func TestAccMongoDBUser_MultipleRoles(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserMultipleRoles(databaseName, userName, password),
@@ -64,9 +65,9 @@ func TestAccMongoDBUser_MultipleRoles(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password"},
 			},
 			{
@@ -100,9 +101,9 @@ func TestAccMongoDBUser_Update(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserBasic(databaseName, userName, password),
@@ -134,9 +135,9 @@ func TestAccMongoDBUser_AdminDatabase(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserAdminDatabase(userName, password),
@@ -149,9 +150,9 @@ func TestAccMongoDBUser_AdminDatabase(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password"},
 			},
 		},
@@ -261,7 +262,13 @@ func TestAccMongoDBUser_StateUpgradeFromPublished(t *testing.T) {
 			{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Config:                   testAccMongoDBUserBasic(dbName, userName, password),
-				PlanOnly:                 true,
+				// terraform-plugin-testing's PlanOnly runs a non-refresh plan; the
+				// realistic upgrade (and the SDKv2 behavior this replaces) refreshes,
+				// which reconciles the 2.0.4 state through Read. Assert the refreshed
+				// plan is empty.
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
 			},
 		},
 	})
@@ -466,9 +473,9 @@ func TestAccMongoDBUser_IAMBasic(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserIAMBasic(iamARN),
@@ -498,9 +505,9 @@ func TestAccMongoDBUser_IAMUpdateRoles(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserIAMBasic(iamARN),
@@ -531,9 +538,9 @@ func TestAccMongoDBUser_IAMPasswordIgnored(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			// Step 1: create the IAM user without a password — should succeed.
 			{
@@ -569,9 +576,9 @@ func TestAccMongoDBUser_BackwardCompat(t *testing.T) {
 	resourceName := "mongodb_db_user.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBUserDestroy,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBUserBasic(dbName, userName, password),
