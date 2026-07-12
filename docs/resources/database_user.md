@@ -5,7 +5,7 @@ Provides a Database User resource.
 
 Each user has a set of roles that provide access to the databases.
 
-> **IMPORTANT:** All arguments including the password will be stored in the raw state as plain-text. [Read more about sensitive data in state.](https://developer.hashicorp.com/terraform/state/sensitive-data)
+> **IMPORTANT:** The `password` argument is stored in the raw state as plain-text. [Read more about sensitive data in state.](https://developer.hashicorp.com/terraform/state/sensitive-data) To keep the password out of state entirely, use the write-only `password_wo` argument (Terraform 1.11+).
 
 ## Example Usages
 
@@ -49,11 +49,46 @@ resource "mongodb_db_user" "user_with_custom_role" {
 }
 ```
 
+#### Create a user with a write-only password (Terraform 1.11+)
+
+`password_wo` is never stored in Terraform state. Bump `password_wo_version` to rotate it.
+
+```hcl
+resource "mongodb_db_user" "user_wo" {
+  auth_database       = "my_database"
+  name                = "example"
+  password_wo         = var.password
+  password_wo_version = "1"
+  role {
+    role = "readWrite"
+    db   = "my_database"
+  }
+}
+```
+
+#### Create an IAM (MONGODB-AWS) user for Amazon DocumentDB
+
+For `MONGODB-AWS`, `name` must be an AWS IAM ARN, no password is set, and the user lives in the `$external` database.
+
+```hcl
+resource "mongodb_db_user" "iam" {
+  auth_mechanism = "MONGODB-AWS"
+  name           = "arn:aws:iam::123456789012:role/my-app-role"
+  role {
+    role = "readWrite"
+    db   = "my_database"
+  }
+}
+```
+
 ## Argument Reference
 
-* `auth_database` (Required, string) – Database against which Mongo authenticates the user. A user must provide both a username and authentication database to log into MongoDB.
-* `name` (Required, string) – Username for authenticating to MongoDB.
-* `password` (Required, string, Sensitive) – User's initial password. A value is required to create the database user. Passwords may show up in Terraform related logs and will be stored in the Terraform state file as plain-text. See [Sensitive Data in State](https://developer.hashicorp.com/terraform/state/sensitive-data).
+* `auth_database` (Optional, string) – Database against which Mongo authenticates the user. Defaults to `$external` for `MONGODB-AWS` users; required for password users.
+* `name` (Required, string) – Username for authenticating to MongoDB. For `MONGODB-AWS` this must be a valid AWS IAM ARN (`arn:aws:iam::<account-id>:(user|role)/<name>`).
+* `password` (Optional, string, Sensitive) – User's password, stored in state as plain-text. Mutually exclusive with `password_wo`. Required for password users unless `password_wo` is set. See [Sensitive Data in State](https://developer.hashicorp.com/terraform/state/sensitive-data).
+* `password_wo` (Optional, string, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) – User's password, supplied via config and **never stored in state**. Requires Terraform 1.11+. Mutually exclusive with `password`; requires `password_wo_version`.
+* `password_wo_version` (Optional, string) – Change this to rotate the write-only `password_wo` (write-only values aren't tracked in state, so this is the update trigger).
+* `auth_mechanism` (Optional, string) – Authentication mechanism. Either `MONGODB-AWS` (Amazon DocumentDB IAM authentication) or empty (standard SCRAM password auth). When `MONGODB-AWS`, `password`/`password_wo` must not be set.
 * `role` (Optional, block) – List of user’s roles and the databases/collections on which the roles apply. See [Role Block](#role-block) below for more details.
 
 ### Role Block
@@ -71,7 +106,8 @@ This resource exports the following attributes:
 
 * `id` – The base64-encoded ID of the user in the format `auth_database.username`.
 * `name` – The username.
-* `auth_database` – The authentication database.
+* `auth_database` – The authentication database (`$external` for `MONGODB-AWS` users).
+* `auth_mechanism` – Set to `MONGODB-AWS` for IAM users; unset for password users.
 
 
 ## Import
