@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -15,11 +16,11 @@ func TestAccMongoDBCollection_Basic(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_collection.test"
-	
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
+		CheckDestroy:             testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBCollectionBasic(databaseName, collectionName),
@@ -32,9 +33,9 @@ func TestAccMongoDBCollection_Basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"deletion_protection"},
 			},
 		},
@@ -45,11 +46,11 @@ func TestAccMongoDBCollection_WithChangeStreamImages(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_collection.test"
-	
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
+		CheckDestroy:             testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBCollectionWithChangeStreamImages(databaseName, collectionName),
@@ -62,9 +63,9 @@ func TestAccMongoDBCollection_WithChangeStreamImages(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"deletion_protection"},
 			},
 		},
@@ -75,11 +76,11 @@ func TestAccMongoDBCollection_Update(t *testing.T) {
 	var collectionName = acctest.RandomWithPrefix("tf-acc-test")
 	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
 	resourceName := "mongodb_db_collection.test"
-	
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBCollectionDestroy,
+		CheckDestroy:             testAccCheckMongoDBCollectionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBCollectionBasic(databaseName, collectionName),
@@ -166,6 +167,52 @@ func testAccCheckMongoDBCollectionDestroy(s *terraform.State) error {
 	}
 
 	return nil
+}
+
+// TestAccMongoDBCollection_deletionProtection verifies that deletion_protection
+// blocks destroy while enabled, and that clearing it allows cleanup.
+func TestAccMongoDBCollection_deletionProtection(t *testing.T) {
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	collName := acctest.RandomWithPrefix("tf-acc-coll")
+	resourceName := "mongodb_db_collection.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBCollectionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBCollectionProtected(dbName, collName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBCollectionExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "deletion_protection", "true"),
+				),
+			},
+			{
+				// Removing the collection while protected must fail the destroy.
+				Config:      "// deletion_protection blocks destroy\n",
+				ExpectError: regexp.MustCompile(`deletion protection`),
+			},
+			{
+				// Clearing protection allows the collection to be destroyed (teardown).
+				Config: testAccMongoDBCollectionProtected(dbName, collName, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBCollectionExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "deletion_protection", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccMongoDBCollectionProtected(dbName, collectionName string, protected bool) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                  = %[1]q
+  name                = %[2]q
+  deletion_protection = %[3]t
+}
+`, dbName, collectionName, protected)
 }
 
 func testAccMongoDBCollectionBasic(dbName, collectionName string) string {
