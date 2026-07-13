@@ -356,6 +356,52 @@ resource "mongodb_db_user" "test" {
 `, dbName, userName, password, version, dbName)
 }
 
+// TestAccMongoDBUser_authenticationRestrictions creates a user with an
+// authentication restriction and verifies it applies with a stable (no-diff)
+// plan afterward.
+func TestAccMongoDBUser_authenticationRestrictions(t *testing.T) {
+	userName := acctest.RandomWithPrefix("tf-acc-authr")
+	password := acctest.RandomWithPrefix("tf-acc-pwd")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBUserAuthRestrictions(dbName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", userName),
+					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.0.client_source.0", "127.0.0.1/32"),
+				),
+			},
+		},
+	})
+}
+
+func testAccMongoDBUserAuthRestrictions(dbName, userName, password string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_user" "test" {
+  auth_database = %[1]q
+  name          = %[2]q
+  password      = %[3]q
+
+  role {
+    db   = %[1]q
+    role = "readWrite"
+  }
+
+  authentication_restriction {
+    client_source = ["127.0.0.1/32"]
+  }
+}
+`, dbName, userName, password)
+}
+
 func testAccMongoDBUserBasic(dbName, userName, password string) string {
 	return fmt.Sprintf(`
 resource "mongodb_db_user" "test" {

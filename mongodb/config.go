@@ -184,7 +184,7 @@ func (resource Resource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
-func createIAMUser(client *mongo.Client, userName string, roles []Role) error {
+func createIAMUser(client *mongo.Client, userName string, roles []Role, authRestrictions bson.A) error {
 	rolesValue := roles
 	if rolesValue == nil {
 		rolesValue = []Role{}
@@ -194,21 +194,27 @@ func createIAMUser(client *mongo.Client, userName string, roles []Role) error {
 		{Key: "mechanisms", Value: bson.A{"MONGODB-AWS"}},
 		{Key: "roles", Value: rolesValue},
 	}
+	if len(authRestrictions) > 0 {
+		cmd = append(cmd, bson.E{Key: "authenticationRestrictions", Value: authRestrictions})
+	}
 	result := client.Database("$external").RunCommand(context.Background(), cmd)
 	return result.Err()
 }
 
-func createUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
-	var result *mongo.SingleResult
-	if len(roles) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
-	} else {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
+func createUser(client *mongo.Client, user DbUser, roles []Role, database string, authRestrictions bson.A) error {
+	var rolesValue interface{} = roles
+	if len(roles) == 0 {
+		rolesValue = []bson.M{}
 	}
-
-	if result.Err() != nil {
+	cmd := bson.D{
+		{Key: "createUser", Value: user.Name},
+		{Key: "pwd", Value: user.Password},
+		{Key: "roles", Value: rolesValue},
+	}
+	if len(authRestrictions) > 0 {
+		cmd = append(cmd, bson.E{Key: "authenticationRestrictions", Value: authRestrictions})
+	}
+	if result := client.Database(database).RunCommand(context.Background(), cmd); result.Err() != nil {
 		return result.Err()
 	}
 	return nil

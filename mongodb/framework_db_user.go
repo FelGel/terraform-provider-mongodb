@@ -36,6 +36,12 @@ type dbUserResourceModel struct {
 	PasswordWOVersion types.String `tfsdk:"password_wo_version"`
 	AuthMechanism     types.String `tfsdk:"auth_mechanism"`
 	Roles             types.Set    `tfsdk:"role"`
+	AuthRestrictions  types.Set    `tfsdk:"authentication_restriction"`
+}
+
+type authRestrictionModel struct {
+	ClientSource  types.List `tfsdk:"client_source"`
+	ServerAddress types.List `tfsdk:"server_address"`
 }
 
 type dbUserRoleModel struct {
@@ -114,6 +120,14 @@ func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					Attributes: map[string]schema.Attribute{
 						"db":   schema.StringAttribute{Optional: true},
 						"role": schema.StringAttribute{Required: true},
+					},
+				},
+			},
+			"authentication_restriction": schema.SetNestedBlock{
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"client_source":  schema.ListAttribute{Optional: true, ElementType: types.StringType},
+						"server_address": schema.ListAttribute{Optional: true, ElementType: types.StringType},
 					},
 				},
 			},
@@ -232,12 +246,14 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 	authMechanism := plan.AuthMechanism.ValueString()
 	roleList, diags := rolesFromSet(ctx, plan.Roles)
 	resp.Diagnostics.Append(diags...)
+	authRestrictions, arDiags := authRestrictionsFromSet(ctx, plan.AuthRestrictions)
+	resp.Diagnostics.Append(arDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	if authMechanism == "MONGODB-AWS" {
-		if err := createIAMUser(client, userName, roleList); err != nil {
+		if err := createIAMUser(client, userName, roleList, authRestrictions); err != nil {
 			resp.Diagnostics.AddError("Could not create the user", err.Error())
 			return
 		}
@@ -248,7 +264,7 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 			return
 		}
 		user := DbUser{Name: userName, Password: pw}
-		if err := createUser(client, user, roleList, database); err != nil {
+		if err := createUser(client, user, roleList, database, authRestrictions); err != nil {
 			resp.Diagnostics.AddError("Could not create the user", err.Error())
 			return
 		}
@@ -258,6 +274,7 @@ func (r *dbUserResource) Create(ctx context.Context, req resource.CreateRequest,
 	var state dbUserResourceModel
 	state.Password = knownOrEmpty(plan.Password)
 	state.PasswordWOVersion = plan.PasswordWOVersion
+	state.AuthRestrictions = plan.AuthRestrictions
 	if err := r.readUserInto(client, id, &state); err != nil {
 		resp.Diagnostics.AddError("Error reading user after create", err.Error())
 		return
@@ -307,6 +324,8 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	authMechanism := plan.AuthMechanism.ValueString()
 	roleList, diags := rolesFromSet(ctx, plan.Roles)
 	resp.Diagnostics.Append(diags...)
+	authRestrictions, arDiags := authRestrictionsFromSet(ctx, plan.AuthRestrictions)
+	resp.Diagnostics.Append(arDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -314,19 +333,23 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if rolesValue == nil {
 		rolesValue = []Role{}
 	}
+	// Always send authenticationRestrictions on update (empty clears them).
+	if authRestrictions == nil {
+		authRestrictions = bson.A{}
+	}
 
 	adminDB := client.Database(database)
 	var cmd bson.D
 	if authMechanism == "MONGODB-AWS" {
 		// IAM users: update roles only; password is ignored.
-		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "roles", Value: rolesValue}}
+		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "roles", Value: rolesValue}, {Key: "authenticationRestrictions", Value: authRestrictions}}
 	} else {
 		pw, pwDiags := effectivePassword(ctx, req.Config, plan)
 		resp.Diagnostics.Append(pwDiags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: pw}, {Key: "roles", Value: rolesValue}}
+		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: pw}, {Key: "roles", Value: rolesValue}, {Key: "authenticationRestrictions", Value: authRestrictions}}
 	}
 	if result := adminDB.RunCommand(ctx, cmd); result.Err() != nil {
 		resp.Diagnostics.AddError("Could not update the user", result.Err().Error())
@@ -337,6 +360,7 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	var state dbUserResourceModel
 	state.Password = knownOrEmpty(plan.Password)
 	state.PasswordWOVersion = plan.PasswordWOVersion
+	state.AuthRestrictions = plan.AuthRestrictions
 	if err := r.readUserInto(client, id, &state); err != nil {
 		resp.Diagnostics.AddError("Error reading user after update", err.Error())
 		return
@@ -441,6 +465,40 @@ func rolesFromSet(ctx context.Context, set types.Set) ([]Role, diag.Diagnostics)
 		roles = append(roles, Role{Role: m.Role.ValueString(), Db: m.Db.ValueString()})
 	}
 	return roles, diags
+}
+
+// authRestrictionsFromSet builds the MongoDB authenticationRestrictions array
+// (each entry a {clientSource, serverAddress} document) from the configured set.
+func authRestrictionsFromSet(ctx context.Context, set types.Set) (bson.A, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if set.IsNull() || set.IsUnknown() {
+		return nil, diags
+	}
+	var models []authRestrictionModel
+	diags.Append(set.ElementsAs(ctx, &models, false)...)
+	if diags.HasError() {
+		return nil, diags
+	}
+	arr := bson.A{}
+	for _, m := range models {
+		doc := bson.D{}
+		if !m.ClientSource.IsNull() && !m.ClientSource.IsUnknown() {
+			var cs []string
+			diags.Append(m.ClientSource.ElementsAs(ctx, &cs, false)...)
+			if len(cs) > 0 {
+				doc = append(doc, bson.E{Key: "clientSource", Value: cs})
+			}
+		}
+		if !m.ServerAddress.IsNull() && !m.ServerAddress.IsUnknown() {
+			var sa []string
+			diags.Append(m.ServerAddress.ElementsAs(ctx, &sa, false)...)
+			if len(sa) > 0 {
+				doc = append(doc, bson.E{Key: "serverAddress", Value: sa})
+			}
+		}
+		arr = append(arr, doc)
+	}
+	return arr, diags
 }
 
 func knownOrEmpty(v types.String) types.String {
