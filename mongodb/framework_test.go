@@ -83,7 +83,7 @@ func TestResourceStateShapeUnchanged(t *testing.T) {
 		newAttrs map[string]bool
 	}{
 		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true, "authentication_restriction": true}},
-		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource(), nil},
+		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource(), map[string]bool{"authentication_restriction": true}},
 		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource(), nil},
 		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource(), nil},
 	}

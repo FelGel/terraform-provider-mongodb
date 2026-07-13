@@ -32,11 +32,12 @@ var dbRoleInheritedObjectType = types.ObjectType{AttrTypes: map[string]attr.Type
 }}
 
 type dbRoleResourceModel struct {
-	ID             types.String `tfsdk:"id"`
-	Database       types.String `tfsdk:"database"`
-	Name           types.String `tfsdk:"name"`
-	Privileges     types.Set    `tfsdk:"privilege"`
-	InheritedRoles types.Set    `tfsdk:"inherited_role"`
+	ID               types.String `tfsdk:"id"`
+	Database         types.String `tfsdk:"database"`
+	Name             types.String `tfsdk:"name"`
+	Privileges       types.Set    `tfsdk:"privilege"`
+	InheritedRoles   types.Set    `tfsdk:"inherited_role"`
+	AuthRestrictions types.Set    `tfsdk:"authentication_restriction"`
 }
 
 type dbRolePrivilegeModel struct {
@@ -112,6 +113,14 @@ func (r *dbRoleResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					},
 				},
 			},
+			"authentication_restriction": schema.SetNestedBlock{
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"client_source":  schema.ListAttribute{Optional: true, ElementType: types.StringType},
+						"server_address": schema.ListAttribute{Optional: true, ElementType: types.StringType},
+					},
+				},
+			},
 		},
 	}
 }
@@ -147,17 +156,20 @@ func (r *dbRoleResource) Create(ctx context.Context, req resource.CreateRequest,
 	resp.Diagnostics.Append(diags...)
 	privileges, diags := privilegesFromSet(ctx, plan.Privileges)
 	resp.Diagnostics.Append(diags...)
+	authRestrictions, arDiags := authRestrictionsFromSet(ctx, plan.AuthRestrictions)
+	resp.Diagnostics.Append(arDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if err := createRole(client, roleName, roleList, privileges, database); err != nil {
+	if err := createRole(client, roleName, roleList, privileges, database, authRestrictions); err != nil {
 		resp.Diagnostics.AddError("Could not create the role", err.Error())
 		return
 	}
 
 	id := base64.StdEncoding.EncodeToString([]byte(database + "." + roleName))
 	var state dbRoleResourceModel
+	state.AuthRestrictions = plan.AuthRestrictions
 	if err := r.readRoleInto(client, id, &state); err != nil {
 		resp.Diagnostics.AddError("Error reading role after create", err.Error())
 		return
@@ -218,17 +230,20 @@ func (r *dbRoleResource) Update(ctx context.Context, req resource.UpdateRequest,
 	resp.Diagnostics.Append(diags...)
 	privileges, diags := privilegesFromSet(ctx, plan.Privileges)
 	resp.Diagnostics.Append(diags...)
+	authRestrictions, arDiags := authRestrictionsFromSet(ctx, plan.AuthRestrictions)
+	resp.Diagnostics.Append(arDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if err := createRole(client, roleName, roleList, privileges, database); err != nil {
+	if err := createRole(client, roleName, roleList, privileges, database, authRestrictions); err != nil {
 		resp.Diagnostics.AddError("Could not update the role", err.Error())
 		return
 	}
 
 	id := base64.StdEncoding.EncodeToString([]byte(database + "." + roleName))
 	var newState dbRoleResourceModel
+	newState.AuthRestrictions = plan.AuthRestrictions
 	if err := r.readRoleInto(client, id, &newState); err != nil {
 		resp.Diagnostics.AddError("Error reading role after update", err.Error())
 		return
