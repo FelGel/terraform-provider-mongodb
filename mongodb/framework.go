@@ -63,6 +63,12 @@ func (p *frameworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			"direct":               schema.BoolAttribute{Optional: true, Description: "enforces a direct connection instead of discovery"},
 			"retrywrites":          schema.BoolAttribute{Optional: true, Description: "Retryable Writes"},
 			"proxy":                schema.StringAttribute{Optional: true},
+			"auth_mechanism":       schema.StringAttribute{Optional: true, Description: "The SASL authentication mechanism the provider uses to connect (e.g. SCRAM-SHA-256, MONGODB-X509, MONGODB-AWS, MONGODB-OIDC). Empty lets the driver negotiate SCRAM."},
+			"auth_mechanism_properties": schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Additional properties for the selected auth_mechanism, e.g. ENVIRONMENT and TOKEN_RESOURCE for MONGODB-OIDC or AWS_SESSION_TOKEN for MONGODB-AWS.",
+			},
 		},
 	}
 }
@@ -81,6 +87,8 @@ type frameworkProviderModel struct {
 	Direct             types.Bool   `tfsdk:"direct"`
 	RetryWrites        types.Bool   `tfsdk:"retrywrites"`
 	Proxy              types.String `tfsdk:"proxy"`
+	AuthMechanism      types.String `tfsdk:"auth_mechanism"`
+	AuthMechanismProps types.Map    `tfsdk:"auth_mechanism_properties"`
 }
 
 func (p *frameworkProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
@@ -106,6 +114,16 @@ func (p *frameworkProvider) Configure(ctx context.Context, req provider.Configur
 		Direct:             cfg.Direct.ValueBool(),
 		RetryWrites:        boolDefault(cfg.RetryWrites, true),
 		Proxy:              strDefault(cfg.Proxy, envMultiDefault("ALL_PROXY", "all_proxy")),
+		AuthMechanism:      strDefault(cfg.AuthMechanism, envDefault("MONGO_AUTH_MECHANISM", "")),
+	}
+
+	if !cfg.AuthMechanismProps.IsNull() && !cfg.AuthMechanismProps.IsUnknown() {
+		props := make(map[string]string, len(cfg.AuthMechanismProps.Elements()))
+		resp.Diagnostics.Append(cfg.AuthMechanismProps.ElementsAs(ctx, &props, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		clientConfig.AuthMechanismProperties = props
 	}
 
 	mc := &MongoDatabaseConfiguration{Config: &clientConfig, MaxConnLifetime: 10}

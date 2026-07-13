@@ -17,19 +17,21 @@ import (
 )
 
 type ClientConfig struct {
-	ConnectionString   string
-	Host               string
-	Port               string
-	Username           string
-	Password           string
-	DB                 string
-	Tls                bool
-	InsecureSkipVerify bool
-	ReplicaSet         string
-	RetryWrites        bool
-	Certificate        string
-	Direct             bool
-	Proxy              string
+	ConnectionString        string
+	Host                    string
+	Port                    string
+	Username                string
+	Password                string
+	DB                      string
+	Tls                     bool
+	InsecureSkipVerify      bool
+	ReplicaSet              string
+	RetryWrites             bool
+	Certificate             string
+	Direct                  bool
+	Proxy                   string
+	AuthMechanism           string
+	AuthMechanismProperties map[string]string
 }
 type DbUser struct {
 	Name          string `json:"name"`
@@ -133,10 +135,8 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}
 
 	opts := options.Client().ApplyURI(uri).SetDialer(dialer)
-	if len(c.Username) > 0 && len(c.Password) > 0 {
-		opts.SetAuth(options.Credential{
-			AuthSource: c.DB, Username: c.Username, Password: c.Password,
-		})
+	if cred, ok := buildCredential(c); ok {
+		opts.SetAuth(cred)
 	}
 
 	if c.Certificate != "" || verify {
@@ -150,6 +150,36 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	// In MongoDB driver v2, mongo.Connect() no longer accepts a context parameter
 	client, err := mongo.Connect(opts)
 	return client, err
+}
+
+// buildCredential assembles the driver auth credential from the client config.
+// It returns ok=false when there is nothing to authenticate with (no mechanism
+// and no username/password pair), leaving the connection unauthenticated.
+//
+// A credential is produced when an explicit auth_mechanism is set OR a
+// username/password pair is present. This lets mechanisms that don't use a
+// password — MONGODB-X509, MONGODB-AWS (IAM roles), MONGODB-OIDC — authenticate
+// with no password. External mechanisms authenticate against the database named
+// by auth_database, which must be "$external" for X.509/AWS/OIDC.
+func buildCredential(c *ClientConfig) (options.Credential, bool) {
+	hasUserPass := len(c.Username) > 0 && len(c.Password) > 0
+	if c.AuthMechanism == "" && !hasUserPass {
+		return options.Credential{}, false
+	}
+
+	cred := options.Credential{
+		AuthSource:    c.DB,
+		AuthMechanism: c.AuthMechanism,
+		Username:      c.Username,
+	}
+	if len(c.AuthMechanismProperties) > 0 {
+		cred.AuthMechanismProperties = c.AuthMechanismProperties
+	}
+	if c.Password != "" {
+		cred.Password = c.Password
+		cred.PasswordSet = true
+	}
+	return cred, true
 }
 
 func getTLSConfig(ca []byte, verify bool) (*tls.Config, error) {

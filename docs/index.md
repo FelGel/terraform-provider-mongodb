@@ -106,4 +106,20 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
 * `retrywrites   ` - (Optional) `default = true `Retryable writes allow MongoDB drivers to automatically retry certain write operations a single time if they encounter network errors, or if they cannot find a healthy primary in the replica sets or sharded cluster.
 * `direct   ` - (Optional) `default = false ` determine if a direct connection is needed..
 * `proxy   ` - (Optional) `default = "" ` determine if connecting via a SOCKS5 proxy is needed, it can also be sourced from the `ALL_PROXY` or `all_proxy` environment variable.
+* `auth_mechanism` - (Optional) The SASL authentication mechanism the provider uses for its own connection, e.g. `SCRAM-SHA-256`, `MONGODB-X509`, `MONGODB-AWS`, or `MONGODB-OIDC`. When empty the driver negotiates SCRAM. Can also be sourced from the `MONGO_AUTH_MECHANISM` environment variable. Mechanisms other than SCRAM authenticate against `$external`, so set `auth_database = "$external"` for `MONGODB-X509`/`MONGODB-AWS`/`MONGODB-OIDC`.
+* `auth_mechanism_properties` - (Optional) Map of additional properties for the selected `auth_mechanism`. For `MONGODB-OIDC` these are the OIDC properties such as `ENVIRONMENT` (e.g. `gcp`, `azure`) and `TOKEN_RESOURCE`; for `MONGODB-AWS`, `AWS_SESSION_TOKEN`.
+
+### Connecting with MONGODB-OIDC
+
+```hcl
+provider "mongodb" {
+  host          = "mongo.example.internal"
+  auth_database = "$external"
+  auth_mechanism = "MONGODB-OIDC"
+  auth_mechanism_properties = {
+    ENVIRONMENT    = "gcp"
+    TOKEN_RESOURCE = "https://mongo.example.internal"
+  }
+}
+```
 
