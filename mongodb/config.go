@@ -247,9 +247,8 @@ func getRole(client *mongo.Client, roleName string, database string) (SingleResu
 	return decodedResult, nil
 }
 
-func createRole(client *mongo.Client, role string, roles []Role, privilege []PrivilegeDto, database string) error {
+func createRole(client *mongo.Client, role string, roles []Role, privilege []PrivilegeDto, database string, authRestrictions bson.A) error {
 	var privileges []Privilege
-	var result *mongo.SingleResult
 	for _, element := range privilege {
 		var prv Privilege
 		prv.Resource = Resource{
@@ -259,21 +258,25 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 		prv.Actions = element.Actions
 		privileges = append(privileges, prv)
 	}
-	if len(roles) != 0 && len(privileges) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
-			{Key: "privileges", Value: privileges}, {Key: "roles", Value: roles}})
-	} else if len(roles) == 0 && len(privileges) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
-			{Key: "privileges", Value: privileges}, {Key: "roles", Value: []bson.M{}}})
-	} else if len(roles) != 0 && len(privileges) == 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
-			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: roles}})
-	} else {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
-			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: []bson.M{}}})
+
+	var privilegesValue interface{} = privileges
+	if len(privileges) == 0 {
+		privilegesValue = []bson.M{}
+	}
+	var rolesValue interface{} = roles
+	if len(roles) == 0 {
+		rolesValue = []bson.M{}
+	}
+	cmd := bson.D{
+		{Key: "createRole", Value: role},
+		{Key: "privileges", Value: privilegesValue},
+		{Key: "roles", Value: rolesValue},
+	}
+	if len(authRestrictions) > 0 {
+		cmd = append(cmd, bson.E{Key: "authenticationRestrictions", Value: authRestrictions})
 	}
 
-	if result.Err() != nil {
+	if result := client.Database(database).RunCommand(context.Background(), cmd); result.Err() != nil {
 		return result.Err()
 	}
 	return nil

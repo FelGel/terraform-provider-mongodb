@@ -75,6 +75,14 @@ Each `inherited_role` block supports the following:
   -> **NOTE:** This value should be `admin` for all roles except `read` and `readWrite`.
 * `role` (Required, string) – Name of the inherited role. This can be another custom role or a [built-in role](https://www.mongodb.com/docs/manual/reference/built-in-roles/).
 
+### Nested Block: `authentication_restriction`
+Maps to MongoDB's role [`authenticationRestrictions`](https://www.mongodb.com/docs/manual/reference/method/db.createRole/#authentication-restrictions). Available in Community MongoDB (3.6+). May be repeated; a connection is allowed if it satisfies any one restriction block.
+
+* `client_source` (Optional, list of string) – IP addresses or CIDR ranges from which a user granted this role is allowed to connect.
+* `server_address` (Optional, list of string) – IP addresses or CIDR ranges of the MongoDB instance addresses a user granted this role is allowed to connect to.
+
+  -> **NOTE:** The configured value is preserved in state as written; the provider does not read the restrictions back from the server.
+
 ## Attributes Reference
 
 This resource exports the following attributes:

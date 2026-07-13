@@ -102,7 +102,7 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", privMapErr)
 	}
 
-	err := createRole(client, role, roleList, privileges, database)
+	err := createRole(client, role, roleList, privileges, database, nil)
 
 	if err != nil {
 		return diag.Errorf("Could not create the role : %s ", err)
@@ -172,7 +172,7 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", privMapErr)
 	}
 
-	err2 := createRole(client, role, roleList, privileges, database)
+	err2 := createRole(client, role, roleList, privileges, database, nil)
 
 	if err2 != nil {
 		return diag.Errorf("Could not create the role  :  %s ", err)

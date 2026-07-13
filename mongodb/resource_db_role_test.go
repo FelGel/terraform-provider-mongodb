@@ -128,6 +128,31 @@ func TestAccMongoDBRole_Update(t *testing.T) {
 	})
 }
 
+// TestAccMongoDBRole_authenticationRestrictions creates a role with a
+// client_source authentication restriction and verifies it applies with a
+// stable (no-diff) plan.
+func TestAccMongoDBRole_authenticationRestrictions(t *testing.T) {
+	roleName := acctest.RandomWithPrefix("tf-acc-role")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_role.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBRoleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBRoleAuthRestrictions(dbName, roleName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBRoleExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.0.client_source.0", "127.0.0.1/32"),
+				),
+			},
+		},
+	})
+}
+
 func testAccCheckMongoDBRoleExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -214,6 +239,25 @@ resource "mongodb_db_role" "test" {
     db         = "%s"
     collection = "test_collection"
     actions    = ["find", "insert", "update"]
+  }
+}
+`, dbName, roleName, dbName)
+}
+
+func testAccMongoDBRoleAuthRestrictions(dbName, roleName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_role" "test" {
+  database = "%s"
+  name     = "%s"
+
+  privilege {
+    db         = "%s"
+    collection = "test_collection"
+    actions    = ["find"]
+  }
+
+  authentication_restriction {
+    client_source = ["127.0.0.1/32"]
   }
 }
 `, dbName, roleName, dbName)

@@ -90,6 +90,16 @@ resource "mongodb_db_user" "iam" {
 * `password_wo_version` (Optional, string) – Change this to rotate the write-only `password_wo` (write-only values aren't tracked in state, so this is the update trigger).
 * `auth_mechanism` (Optional, string) – Authentication mechanism. Either `MONGODB-AWS` (Amazon DocumentDB IAM authentication) or empty (standard SCRAM password auth). When `MONGODB-AWS`, `password`/`password_wo` must not be set.
 * `role` (Optional, block) – List of user’s roles and the databases/collections on which the roles apply. See [Role Block](#role-block) below for more details.
+* `authentication_restriction` (Optional, block) – Restricts the IP addresses/CIDR ranges from which the user may connect and to which server addresses. See [Authentication Restriction Block](#authentication-restriction-block) below.
+
+### Authentication Restriction Block
+
+Maps to MongoDB's user [`authenticationRestrictions`](https://www.mongodb.com/docs/manual/reference/method/db.createUser/#authentication-restrictions). Available in Community MongoDB (3.6+). May be repeated; a connection is allowed if it satisfies any one restriction block.
+
+* `client_source` (Optional, list of string) – IP addresses or CIDR ranges from which the user is allowed to connect.
+* `server_address` (Optional, list of string) – IP addresses or CIDR ranges of the MongoDB instance addresses the user is allowed to connect to.
+
+> **NOTE:** The configured value is preserved in state as written; the provider does not read the restrictions back from the server.
 
 ### Role Block
 
