@@ -82,7 +82,7 @@ func TestResourceStateShapeUnchanged(t *testing.T) {
 		// (additive, not a state-compat concern) and excluded from the check.
 		newAttrs map[string]bool
 	}{
-		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true}},
+		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true, "authentication_restriction": true}},
 		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource(), nil},
 		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource(), nil},
 		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource(), nil},

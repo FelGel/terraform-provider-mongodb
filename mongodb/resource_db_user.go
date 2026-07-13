@@ -308,7 +308,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 	}
 
 	if authMechanism == "MONGODB-AWS" {
-		err := createIAMUser(client, userName, roleList)
+		err := createIAMUser(client, userName, roleList, nil)
 		if err != nil {
 			return diag.Errorf("Could not create the user : %s ", err)
 		}
@@ -318,7 +318,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 			Name:     userName,
 			Password: userPassword,
 		}
-		err := createUser(client, user, roleList, database)
+		err := createUser(client, user, roleList, database, nil)
 		if err != nil {
 			return diag.Errorf("Could not create the user : %s ", err)
 		}
