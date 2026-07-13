@@ -95,6 +95,18 @@ func Provider() *schema.Provider {
 				}, nil),
 				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile(`^socks5h?://.*:\d+$`), "The proxy URL is not a valid socks url.")),
 			},
+			"auth_mechanism": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGO_AUTH_MECHANISM", ""),
+				Description: "The SASL authentication mechanism the provider uses to connect (e.g. SCRAM-SHA-256, MONGODB-X509, MONGODB-AWS, MONGODB-OIDC). Empty lets the driver negotiate SCRAM.",
+			},
+			"auth_mechanism_properties": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				Description: "Additional properties for the selected auth_mechanism, e.g. ENVIRONMENT and TOKEN_RESOURCE for MONGODB-OIDC or AWS_SESSION_TOKEN for MONGODB-AWS.",
+			},
 		},
 		// All resources are now served by the terraform-plugin-framework half
 		// (see framework_*.go), muxed alongside this SDKv2 provider. They must
@@ -128,6 +140,15 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Direct:             d.Get("direct").(bool),
 		RetryWrites:        d.Get("retrywrites").(bool),
 		Proxy:              d.Get("proxy").(string),
+		AuthMechanism:      d.Get("auth_mechanism").(string),
+	}
+
+	if props, ok := d.GetOk("auth_mechanism_properties"); ok {
+		raw := props.(map[string]interface{})
+		clientConfig.AuthMechanismProperties = make(map[string]string, len(raw))
+		for k, v := range raw {
+			clientConfig.AuthMechanismProperties[k] = v.(string)
+		}
 	}
 
 	return &MongoDatabaseConfiguration{
