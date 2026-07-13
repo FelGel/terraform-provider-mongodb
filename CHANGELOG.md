@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.1.0
+
+FEATURES:
+
+* `mongodb_db_user` and `mongodb_db_role`: `authentication_restriction` blocks (`client_source` / `server_address`), mapping to MongoDB's `authenticationRestrictions`. Restricts the IP addresses/CIDR ranges a user (or a user granted the role) may connect from and to. Available in Community MongoDB 3.6+.
+* **provider**: `auth_mechanism` and `auth_mechanism_properties` configure the SASL mechanism the provider uses for its own connection — unlocking `MONGODB-X509`, `MONGODB-AWS`, and `MONGODB-OIDC` (plus explicit `SCRAM-SHA-1`/`SCRAM-SHA-256`) in addition to the previously hard-coded SCRAM path. `auth_mechanism` can also be sourced from the `MONGO_AUTH_MECHANISM` environment variable.
+* `mongodb_db_index`: `sparse` indexes, via a `keys` entry with `field = "sparse"` (mirroring the existing `unique` / `expireAfterSeconds` entries).
+
+NOTES:
+
+* All changes are additive and backward-compatible; existing configurations and state are unaffected.
+
 ## 3.0.0
 
 BREAKING CHANGES:
