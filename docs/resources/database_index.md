@@ -97,6 +97,42 @@ resource "mongodb_db_index" "hidden_index" {
 * `timeout` - (Optional) Timeout for index creation operation
 
 
+## Changing an existing index
+
+MongoDB indexes are largely immutable: the server has no "alter index" for the
+key spec or most options. This resource reflects that — only `hidden` can be
+changed in place. **Every other change** forces replacement: the `keys` block
+(including the `unique`, `sparse`, and `expireAfterSeconds` pseudo-entries),
+`name`, `partial_filter_expression`, `db`, and `collection` are all marked
+`RequiresReplace`. Terraform migrates such a change by **dropping the old index
+and creating the new one** in the same apply.
+
+Migrating between index variants (e.g. non-unique → unique, adding `sparse`,
+regular → TTL, full → partial) therefore means editing the config and applying;
+`terraform plan` will show the index being destroyed and recreated:
+
+```hcl
+# before                         # after (forces replacement)
+keys {                           keys {
+  field = "email"                  field = "email"
+  value = "1"                      value = "1"
+}                                }
+                                 keys {
+                                   field = "unique"
+                                   value = "true"
+                                 }
+```
+
+Practical notes:
+
+* The drop-and-recreate is not atomic — there is a brief window with no index.
+  For large collections the rebuild can be expensive; plan the apply
+  accordingly and raise `timeout` if index creation is slow.
+* To evaluate the impact of *removing* an index before actually dropping it,
+  set `hidden = true` first (an in-place change), observe query performance,
+  then remove the resource.
+* Changing only `hidden` never recreates the index.
+
 ## Import
 
 Mongodb indexes can be imported using the hex encoded id, e.g. for a collection named `collection_test`, his database id `test_db` and collection name `example_index`:
