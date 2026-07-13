@@ -18,9 +18,9 @@ func TestAccMongoDBIndex_Basic(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexBasic(databaseName, collectionName, indexName),
@@ -51,9 +51,9 @@ func TestAccMongoDBIndex_MultipleFields(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexMultipleFields(databaseName, collectionName, indexName),
@@ -86,9 +86,9 @@ func TestAccMongoDBIndex_Compound(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexCompound(databaseName, collectionName, indexName),
@@ -117,9 +117,9 @@ func TestAccMongoDBIndex_TTLIndex(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexTTL(databaseName, collectionName, indexName),
@@ -151,9 +151,9 @@ func TestAccMongoDBIndex_GeneratedName(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexGeneratedName(databaseName, collectionName),
@@ -177,9 +177,9 @@ func TestAccMongoDBIndex_Unique(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexUnique(databaseName, collectionName, indexName),
@@ -209,6 +209,41 @@ func TestAccMongoDBIndex_Unique(t *testing.T) {
 	})
 }
 
+func TestAccMongoDBIndex_Sparse(t *testing.T) {
+	var indexName = acctest.RandomWithPrefix("tf-acc-sparse-idx")
+	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
+	var databaseName = acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_index.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBIndexSparse(databaseName, collectionName, indexName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBIndexExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", indexName),
+					// read-back order: real keys, then unique, then sparse
+					resource.TestCheckResourceAttr(resourceName, "keys.#", "3"),
+					resource.TestCheckResourceAttr(resourceName, "keys.0.field", "email"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.field", "unique"),
+					resource.TestCheckResourceAttr(resourceName, "keys.1.value", "true"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.field", "sparse"),
+					resource.TestCheckResourceAttr(resourceName, "keys.2.value", "true"),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"timeout"},
+			},
+		},
+	})
+}
+
 func TestAccMongoDBIndex_PartialFilter(t *testing.T) {
 	var indexName = acctest.RandomWithPrefix("tf-acc-partial-idx")
 	var collectionName = acctest.RandomWithPrefix("tf-acc-coll")
@@ -216,9 +251,9 @@ func TestAccMongoDBIndex_PartialFilter(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexPartialFilter(databaseName, collectionName, indexName),
@@ -254,9 +289,9 @@ func TestAccMongoDBIndex_PartialFilterElemMatch(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexPartialFilterExists(databaseName, collectionName, indexName),
@@ -282,9 +317,9 @@ func TestAccMongoDBIndex_Hidden(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexHidden(databaseName, collectionName, indexName, true),
@@ -312,9 +347,9 @@ func TestAccMongoDBIndex_HiddenToggle(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			// Step 1: create index as visible (hidden=false)
 			{
@@ -354,9 +389,9 @@ func TestAccMongoDBIndex_PartialFilterAndHidden(t *testing.T) {
 	resourceName := "mongodb_db_index.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBIndexDestroy,
+		CheckDestroy:             testAccCheckMongoDBIndexDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBIndexPartialFilterAndHidden(databaseName, collectionName, indexName),
@@ -710,6 +745,36 @@ resource "mongodb_db_index" "test" {
   }
   keys {
     field = "unique"
+    value = "true"
+  }
+  timeout = 30
+}
+`, dbName, collectionName, dbName, collectionName, indexName)
+}
+
+func testAccMongoDBIndexSparse(dbName, collectionName, indexName string) string {
+	return fmt.Sprintf(`
+resource "mongodb_db_collection" "test" {
+  db                   = "%s"
+  name                 = "%s"
+  deletion_protection  = false
+}
+
+resource "mongodb_db_index" "test" {
+  depends_on = [mongodb_db_collection.test]
+  db         = "%s"
+  collection = "%s"
+  name       = "%s"
+  keys {
+    field = "email"
+    value = "1"
+  }
+  keys {
+    field = "unique"
+    value = "true"
+  }
+  keys {
+    field = "sparse"
     value = "true"
   }
   timeout = 30

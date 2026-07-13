@@ -22,7 +22,11 @@ resource "mongodb_db_index" "example_index" {
   keys {
     field = "unique"
     value = "true"
-  }  
+  }
+  keys {
+    field = "sparse"
+    value = "true"
+  }
   keys {
     field = "expireAfterSeconds"
     value = "86400"
@@ -80,8 +84,12 @@ resource "mongodb_db_index" "hidden_index" {
 ## Argument Reference
 * `db` - (Required) Database in which the target collection resides
 * `collection` - (Required) Collection name
-* `keys` - (Required) Field and value pairs where the field is the index key and the value describes the type of index for that field
-                      For an ascending index on a field, specify a value of 1. For descending index, specify a value of -1
+* `keys` - (Required) Field and value pairs where the field is the index key and the value describes the type of index for that field.
+                      For an ascending index on a field, specify a value of 1. For descending index, specify a value of -1.
+                      A handful of index *options* are also expressed as `keys` entries (rather than dedicated attributes):
+                      `unique = "true"`, `sparse = "true"`, and `expireAfterSeconds = "<n>"` (TTL). These are read back
+                      as `keys` entries too, appended after the real key fields in the order unique, sparse, expireAfterSeconds —
+                      list them last, in that order, to avoid a plan diff.
                       See https://www.mongodb.com/docs/manual/reference/method/db.collection.createIndex/ for details
 * `name` - (Optional) Index name
 * `partial_filter_expression` - (Optional) A JSON string representing the partialFilterExpression for a partial index. Use `jsonencode()` for readability. See https://www.mongodb.com/docs/manual/core/index-partial/ for details

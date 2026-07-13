@@ -292,6 +292,9 @@ func (r *dbIndexResource) createIndex(ctx context.Context, client *mongo.Client,
 		if strings.ToLower(keyField) == "unique" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
 			indexOptions.SetUnique(strings.ToLower(value) == "true")
 			continue
+		} else if strings.ToLower(keyField) == "sparse" && (strings.ToLower(value) == "true" || strings.ToLower(value) == "false") {
+			indexOptions.SetSparse(strings.ToLower(value) == "true")
+			continue
 		} else if value == "1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {
@@ -364,6 +367,9 @@ func (r *dbIndexResource) readIndexInto(client *mongo.Client, m *dbIndexResource
 		}
 		if unique, ok := result["unique"]; ok {
 			keyValues = append(keyValues, mustIndexKeyObject("unique", fmt.Sprintf("%v", unique)))
+		}
+		if sparse, ok := result["sparse"]; ok {
+			keyValues = append(keyValues, mustIndexKeyObject("sparse", fmt.Sprintf("%v", sparse)))
 		}
 		if expireAfter, ok := result["expireAfterSeconds"]; ok {
 			keyValues = append(keyValues, mustIndexKeyObject("expireAfterSeconds", fmt.Sprintf("%v", expireAfter)))
