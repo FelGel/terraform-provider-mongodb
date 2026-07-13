@@ -17,9 +17,9 @@ func TestAccMongoDBRole_Basic(t *testing.T) {
 	resourceName := "mongodb_db_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
+		CheckDestroy:             testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBRoleBasic(databaseName, roleName),
@@ -45,9 +45,9 @@ func TestAccMongoDBRole_WithInheritedRoles(t *testing.T) {
 	resourceName := "mongodb_db_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
+		CheckDestroy:             testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBRoleWithInheritedRoles(databaseName, roleName),
@@ -74,9 +74,9 @@ func TestAccMongoDBRole_MultiplePrivileges(t *testing.T) {
 	resourceName := "mongodb_db_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:      testAccCheckMongoDBRoleDestroy,
+		CheckDestroy:             testAccCheckMongoDBRoleDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMongoDBRoleMultiplePrivileges(databaseName, roleName),
@@ -91,6 +91,38 @@ func TestAccMongoDBRole_MultiplePrivileges(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// TestAccMongoDBRole_Update exercises the role update path (which drops and
+// recreates the role): it changes the privilege set and verifies the new set.
+func TestAccMongoDBRole_Update(t *testing.T) {
+	roleName := acctest.RandomWithPrefix("tf-acc-role")
+	dbName := acctest.RandomWithPrefix("tf-acc-db")
+	resourceName := "mongodb_db_role.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMongoDBRoleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMongoDBRoleBasic(dbName, roleName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBRoleExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", roleName),
+					resource.TestCheckResourceAttr(resourceName, "privilege.#", "1"),
+				),
+			},
+			{
+				Config: testAccMongoDBRoleMultiplePrivileges(dbName, roleName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBRoleExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", roleName),
+					resource.TestCheckResourceAttr(resourceName, "privilege.#", "2"),
+				),
 			},
 		},
 	})
