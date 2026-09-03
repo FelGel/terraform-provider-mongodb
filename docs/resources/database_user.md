@@ -89,7 +89,7 @@ resource "mongodb_db_user" "iam" {
 * `password_wo` (Optional, string, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) – User's password, supplied via config and **never stored in state**. Requires Terraform 1.11+. Mutually exclusive with `password`; requires `password_wo_version`.
 * `password_wo_version` (Optional, string) – Change this to rotate the write-only `password_wo` (write-only values aren't tracked in state, so this is the update trigger).
 * `auth_mechanism` (Optional, string) – Authentication mechanism. Either `MONGODB-AWS` (Amazon DocumentDB IAM authentication) or empty (standard SCRAM password auth). When `MONGODB-AWS`, `password`/`password_wo` must not be set.
-* `role` (Optional, block) – List of user’s roles and the databases/collections on which the roles apply. See [Role Block](#role-block) below for more details.
+* `role` (Optional, block) – List of user’s roles and the databases/collections on which the roles apply. At most 1000 roles (Amazon DocumentDB's per-user cap). See [Role Block](#role-block) below for more details.
 * `authentication_restriction` (Optional, block) – Restricts the IP addresses/CIDR ranges from which the user may connect and to which server addresses. See [Authentication Restriction Block](#authentication-restriction-block) below.
 
 ### Authentication Restriction Block
@@ -99,7 +99,7 @@ Maps to MongoDB's user [`authenticationRestrictions`](https://www.mongodb.com/do
 * `client_source` (Optional, list of string) – IP addresses or CIDR ranges from which the user is allowed to connect.
 * `server_address` (Optional, list of string) – IP addresses or CIDR ranges of the MongoDB instance addresses the user is allowed to connect to.
 
-> **NOTE:** The configured value is preserved in state as written; the provider does not read the restrictions back from the server.
+> **NOTE:** The configured value is preserved in state as written; the provider does not read the restrictions back from the server. Removing every `authentication_restriction` block still clears them on Community MongoDB (`updateUser` with `[]`). The field is omitted when restrictions were never in state, because Amazon DocumentDB rejects `authenticationRestrictions` on `updateUser`.
 
 ### Role Block
 
