@@ -379,6 +379,13 @@ func TestAccMongoDBUser_authenticationRestrictions(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.0.client_source.0", "127.0.0.1/32"),
 				),
 			},
+			{
+				Config: testAccMongoDBUserBasic(dbName, userName, password),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckMongoDBUserExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "authentication_restriction.#", "0"),
+				),
+			},
 		},
 	})
 }

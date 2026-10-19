@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -116,6 +117,9 @@ func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 		},
 		Blocks: map[string]schema.Block{
 			"role": schema.SetNestedBlock{
+				Validators: []validator.Set{
+					setvalidator.SizeAtMost(1000),
+				},
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"db":   schema.StringAttribute{Optional: true},
@@ -307,8 +311,9 @@ func (r *dbUserResource) Read(ctx context.Context, req resource.ReadRequest, res
 }
 
 func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan dbUserResourceModel
+	var plan, prior dbUserResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -326,6 +331,8 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	resp.Diagnostics.Append(diags...)
 	authRestrictions, arDiags := authRestrictionsFromSet(ctx, plan.AuthRestrictions)
 	resp.Diagnostics.Append(arDiags...)
+	priorRestrictions, priorDiags := authRestrictionsFromSet(ctx, prior.AuthRestrictions)
+	resp.Diagnostics.Append(priorDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -333,24 +340,21 @@ func (r *dbUserResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if rolesValue == nil {
 		rolesValue = []Role{}
 	}
-	// Always send authenticationRestrictions on update (empty clears them).
-	if authRestrictions == nil {
-		authRestrictions = bson.A{}
-	}
 
 	adminDB := client.Database(database)
 	var cmd bson.D
 	if authMechanism == "MONGODB-AWS" {
 		// IAM users: update roles only; password is ignored.
-		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "roles", Value: rolesValue}, {Key: "authenticationRestrictions", Value: authRestrictions}}
+		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "roles", Value: rolesValue}}
 	} else {
 		pw, pwDiags := effectivePassword(ctx, req.Config, plan)
 		resp.Diagnostics.Append(pwDiags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: pw}, {Key: "roles", Value: rolesValue}, {Key: "authenticationRestrictions", Value: authRestrictions}}
+		cmd = bson.D{{Key: "updateUser", Value: userName}, {Key: "pwd", Value: pw}, {Key: "roles", Value: rolesValue}}
 	}
+	cmd = appendAuthRestrictionsOnUpdate(cmd, authRestrictions, priorRestrictions)
 	if result := adminDB.RunCommand(ctx, cmd); result.Err() != nil {
 		resp.Diagnostics.AddError("Could not update the user", result.Err().Error())
 		return
@@ -448,6 +452,21 @@ func (r *dbUserResource) readUserInto(client *mongo.Client, id string, m *dbUser
 		m.AuthMechanism = types.StringNull()
 	}
 	return nil
+}
+
+// appendAuthRestrictionsOnUpdate adds authenticationRestrictions to updateUser
+// only when IaC requires a change. DocumentDB rejects the argument, so it is
+// omitted when neither plan nor prior state has restriction blocks. Removing
+// the HCL block still sends [] so Community MongoDB converges to empty.
+func appendAuthRestrictionsOnUpdate(cmd bson.D, planRestrictions, priorRestrictions bson.A) bson.D {
+	switch {
+	case len(planRestrictions) > 0:
+		return append(cmd, bson.E{Key: "authenticationRestrictions", Value: planRestrictions})
+	case len(priorRestrictions) > 0:
+		return append(cmd, bson.E{Key: "authenticationRestrictions", Value: bson.A{}})
+	default:
+		return cmd
+	}
 }
 
 func rolesFromSet(ctx context.Context, set types.Set) ([]Role, diag.Diagnostics) {
