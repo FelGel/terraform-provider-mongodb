@@ -347,3 +347,9 @@ func proxyDialer(c *ClientConfig) (options.ContextDialer, error) {
 
 	return proxyFromEnv, nil
 }
+
+// MongoDatabaseConfiguration is the configured provider data handed to resources.
+type MongoDatabaseConfiguration struct {
+	Config          *ClientConfig
+	MaxConnLifetime time.Duration
+}

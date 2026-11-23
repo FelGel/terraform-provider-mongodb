@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
@@ -191,7 +192,7 @@ func (r *dbUserResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	authMechanism := plan.AuthMechanism.ValueString()
 	name := plan.Name.ValueString()
 
-	if authMechanism != "" && authMechanism != "MONGODB-AWS" {
+	if !validDBUserAuthMechanism(authMechanism) {
 		resp.Diagnostics.AddError("Invalid db_user configuration", fmt.Sprintf(`auth_mechanism must be "MONGODB-AWS" or empty; got %q`, authMechanism))
 		return
 	}
@@ -525,4 +526,51 @@ func knownOrEmpty(v types.String) types.String {
 		return types.StringValue("")
 	}
 	return v
+}
+
+// resolveAuthDatabase returns the effective auth_database for a user.
+// For IAM users (MONGODB-AWS), it always returns "$external" regardless of the input.
+// For password users, it returns the provided value unchanged.
+func resolveAuthDatabase(authMechanism, currentAuthDB string) string {
+	if authMechanism == "MONGODB-AWS" {
+		return "$external"
+	}
+	return currentAuthDB
+}
+
+// validateDBUserDiff contains the pure cross-field validation logic, extracted for unit testing.
+func validateDBUserDiff(authMechanism, password string) error {
+	if authMechanism == "MONGODB-AWS" {
+		if password != "" {
+			return fmt.Errorf(`password must not be set when auth_mechanism is "MONGODB-AWS"`)
+		}
+		return nil
+	}
+	if password == "" {
+		return fmt.Errorf("password is required when auth_mechanism is not set")
+	}
+	return nil
+}
+
+func resourceDatabaseUserParseId(id string) (string, string, error) {
+	result, errEncoding := base64.StdEncoding.DecodeString(id)
+
+	if errEncoding != nil {
+		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
+	}
+	parts := strings.SplitN(string(result), ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("unexpected format of ID (%s), expected attribute1.attribute2", id)
+	}
+
+	database := parts[0]
+	userName := parts[1]
+
+	return userName, database, nil
+}
+
+// validDBUserAuthMechanism reports whether auth_mechanism is supported on a
+// db_user: empty (password auth) or "MONGODB-AWS" (IAM).
+func validDBUserAuthMechanism(v string) bool {
+	return v == "" || v == "MONGODB-AWS"
 }

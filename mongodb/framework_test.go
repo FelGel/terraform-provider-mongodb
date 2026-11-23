@@ -6,23 +6,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	sdkschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-// TestMuxProviderSchema verifies the SDKv2 and framework provider halves expose
-// an identical provider configuration schema (a mux requirement) and that the
-// framework resource schemas are valid. Runs without a database.
-func TestMuxProviderSchema(t *testing.T) {
+// TestProviderSchema verifies the provider and resource schemas are valid and
+// every resource is served. Runs without a database.
+func TestProviderSchema(t *testing.T) {
 	ctx := context.Background()
-	factory, err := MuxServerFactory(ctx)
-	if err != nil {
-		t.Fatalf("MuxServerFactory: %s", err)
-	}
-	resp, err := factory().GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
+	resp, err := providerserver.NewProtocol6(NewFrameworkProvider())().GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
 	if err != nil {
 		t.Fatalf("GetProviderSchema: %s", err)
 	}
@@ -33,20 +27,15 @@ func TestMuxProviderSchema(t *testing.T) {
 	}
 	for _, typ := range []string{"mongodb_db_user", "mongodb_db_role", "mongodb_db_collection", "mongodb_db_index"} {
 		if _, ok := resp.ResourceSchemas[typ]; !ok {
-			t.Errorf("%s not present in muxed provider schema", typ)
+			t.Errorf("%s not present in provider schema", typ)
 		}
 	}
 }
 
-// TestMuxListResources verifies the mux server actually serves the framework
-// list resource(s) — i.e. that terraform-plugin-mux propagates list resources.
-func TestMuxListResources(t *testing.T) {
+// TestListResources verifies every resource is also served as a list resource.
+func TestListResources(t *testing.T) {
 	ctx := context.Background()
-	factory, err := MuxServerFactory(ctx)
-	if err != nil {
-		t.Fatalf("MuxServerFactory: %s", err)
-	}
-	resp, err := factory().GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
+	resp, err := providerserver.NewProtocol6(NewFrameworkProvider())().GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
 	if err != nil {
 		t.Fatalf("GetProviderSchema: %s", err)
 	}
@@ -61,39 +50,72 @@ func TestMuxListResources(t *testing.T) {
 			for k := range resp.ListResourceSchemas {
 				got = append(got, k)
 			}
-			t.Errorf("%s not served as a list resource through the mux; list schemas present: %v", typ, got)
+			t.Errorf("%s not served as a list resource; list schemas present: %v", typ, got)
 		}
 	}
 }
 
+// sdkv2StateShapes are the attribute names and types of the SDKv2 resource
+// schemas, frozen when the SDKv2 implementation was removed (state written by
+// releases up to 3.x uses them).
+var sdkv2StateShapes = map[string]map[string]string{
+	"mongodb_db_user": {
+		"auth_database":  "string",
+		"auth_mechanism": "string",
+		"id":             "string",
+		"name":           "string",
+		"password":       "string",
+		"role":           "set(object{db:string,role:string})",
+	},
+	"mongodb_db_role": {
+		"database":       "string",
+		"id":             "string",
+		"inherited_role": "set(object{db:string,role:string})",
+		"name":           "string",
+		"privilege":      "set(object{actions:list(string),collection:string,db:string})",
+	},
+	"mongodb_db_collection": {
+		"change_stream_pre_and_post_images": "bool",
+		"db":                                "string",
+		"deletion_protection":               "bool",
+		"id":                                "string",
+		"name":                              "string",
+	},
+	"mongodb_db_index": {
+		"collection":                "string",
+		"db":                        "string",
+		"hidden":                    "bool",
+		"id":                        "string",
+		"keys":                      "list(object{field:string,value:string})",
+		"name":                      "string",
+		"partial_filter_expression": "string",
+		"timeout":                   "number",
+	},
+}
+
 // TestResourceStateShapeUnchanged is the state-compatibility guard for the
-// SDKv2 -> framework migration. For each migrated resource it asserts the
-// framework schema has the same attribute names and types as the retained
-// SDKv2 schema. Divergence would mean existing SDKv2-written state fails to
-// round-trip through the framework resource (spurious diffs / plan errors on
-// upgrade). No database needed.
+// SDKv2 -> framework migration: each resource keeps the attribute names and
+// types of its SDKv2 schema, so state written by SDKv2 releases round-trips
+// without spurious diffs. New framework attributes are listed explicitly.
+// No database needed.
 func TestResourceStateShapeUnchanged(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name string
-		sdk  *sdkschema.Resource
 		fw   resource.Resource
 		// newAttrs are framework attributes added since the SDKv2 schema
 		// (additive, not a state-compat concern) and excluded from the check.
 		newAttrs map[string]bool
 	}{
-		{"mongodb_db_user", resourceDatabaseUser(), newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true, "authentication_restriction": true}},
-		{"mongodb_db_role", resourceDatabaseRole(), newDBRoleResource(), map[string]bool{"authentication_restriction": true}},
-		{"mongodb_db_collection", resourceDatabaseCollection(), newDBCollectionResource(), nil},
-		{"mongodb_db_index", resourceDatabaseIndex(), newDBIndexResource(), nil},
+		{"mongodb_db_user", newDBUserResource(), map[string]bool{"password_wo": true, "password_wo_version": true, "authentication_restriction": true}},
+		{"mongodb_db_role", newDBRoleResource(), map[string]bool{"authentication_restriction": true}},
+		{"mongodb_db_collection", newDBCollectionResource(), nil},
+		{"mongodb_db_index", newDBIndexResource(), nil},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			sdkKinds := map[string]string{}
-			for name, at := range tc.sdk.CoreConfigSchema().ImpliedType().AttributeTypes() {
-				sdkKinds[name] = ctyKind(at)
-			}
+			sdkKinds := sdkv2StateShapes[tc.name]
 
 			var resp resource.SchemaResponse
 			tc.fw.Schema(ctx, resource.SchemaRequest{}, &resp)
@@ -118,29 +140,6 @@ func TestResourceStateShapeUnchanged(t *testing.T) {
 			}
 		})
 	}
-}
-
-func ctyKind(t cty.Type) string {
-	switch {
-	case t.Equals(cty.String):
-		return "string"
-	case t.Equals(cty.Bool):
-		return "bool"
-	case t.Equals(cty.Number):
-		return "number"
-	case t.IsSetType():
-		return "set(" + ctyKind(t.ElementType()) + ")"
-	case t.IsListType():
-		return "list(" + ctyKind(t.ElementType()) + ")"
-	case t.IsObjectType():
-		parts := []string{}
-		for n, at := range t.AttributeTypes() {
-			parts = append(parts, n+":"+ctyKind(at))
-		}
-		sort.Strings(parts)
-		return "object{" + strings.Join(parts, ",") + "}"
-	}
-	return t.FriendlyName()
 }
 
 func tfKind(t tftypes.Type) string {

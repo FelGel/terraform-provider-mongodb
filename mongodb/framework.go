@@ -3,42 +3,19 @@ package mongodb
 import (
 	"context"
 	"os"
+	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
-	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 )
 
-// MuxServerFactory builds the protocol-6 mux server that fronts both provider
-// halves: the SDKv2 provider (upgraded 5->6) and the terraform-plugin-framework
-// provider. main.go, the acceptance-test factory, and the schema-match test all
-// go through this so they exercise the same wiring.
-func MuxServerFactory(ctx context.Context) (func() tfprotov6.ProviderServer, error) {
-	upgradedSDK, err := tf5to6server.UpgradeServer(ctx, Provider().GRPCProvider)
-	if err != nil {
-		return nil, err
-	}
-	providers := []func() tfprotov6.ProviderServer{
-		func() tfprotov6.ProviderServer { return upgradedSDK },
-		providerserver.NewProtocol6(NewFrameworkProvider()),
-	}
-	muxServer, err := tf6muxserver.NewMuxServer(ctx, providers...)
-	if err != nil {
-		return nil, err
-	}
-	return muxServer.ProviderServer, nil
-}
-
-// frameworkProvider is the terraform-plugin-framework half of the provider.
-// Its configuration schema must stay identical to the SDKv2 provider schema
-// (a mux requirement); only resources migrated to the framework live here.
+// frameworkProvider is the MongoDB provider, built on terraform-plugin-framework.
 type frameworkProvider struct{}
 
 func NewFrameworkProvider() provider.Provider { return &frameworkProvider{} }
@@ -62,8 +39,13 @@ func (p *frameworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			"tls":                  schema.BoolAttribute{Optional: true, Description: "TLS activation"},
 			"direct":               schema.BoolAttribute{Optional: true, Description: "enforces a direct connection instead of discovery"},
 			"retrywrites":          schema.BoolAttribute{Optional: true, Description: "Retryable Writes"},
-			"proxy":                schema.StringAttribute{Optional: true},
-			"auth_mechanism":       schema.StringAttribute{Optional: true, Description: "The SASL authentication mechanism the provider uses to connect (e.g. SCRAM-SHA-256, MONGODB-X509, MONGODB-AWS, MONGODB-OIDC). Empty lets the driver negotiate SCRAM."},
+			"proxy": schema.StringAttribute{
+				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(regexp.MustCompile(`^socks5h?://.*:\d+$`), "The proxy URL is not a valid socks url."),
+				},
+			},
+			"auth_mechanism": schema.StringAttribute{Optional: true, Description: "The SASL authentication mechanism the provider uses to connect (e.g. SCRAM-SHA-256, MONGODB-X509, MONGODB-AWS, MONGODB-OIDC). Empty lets the driver negotiate SCRAM."},
 			"auth_mechanism_properties": schema.MapAttribute{
 				Optional:    true,
 				ElementType: types.StringType,

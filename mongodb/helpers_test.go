@@ -5,32 +5,29 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/go-cty/cty"
 	"pgregory.net/rapid"
 )
 
-// TestValidateAuthMechanism_Valid — "MONGODB-AWS" and "" return no errors.
-func TestValidateAuthMechanism_Valid(t *testing.T) {
+// TestValidDBUserAuthMechanism_Valid — "MONGODB-AWS" and "" return no errors.
+func TestValidDBUserAuthMechanism_Valid(t *testing.T) {
 	for _, v := range []string{"MONGODB-AWS", ""} {
-		diags := validateAuthMechanism(v, cty.Path{})
-		if len(diags) != 0 {
-			t.Errorf("expected no diagnostics for %q, got: %v", v, diags)
+		if !validDBUserAuthMechanism(v) {
+			t.Errorf("expected %q to be accepted", v)
 		}
 	}
 }
 
-// TestValidateAuthMechanism_Invalid — arbitrary non-MONGODB-AWS strings return errors.
-func TestValidateAuthMechanism_Invalid(t *testing.T) {
+// TestValidDBUserAuthMechanism_Invalid — arbitrary non-MONGODB-AWS strings return errors.
+func TestValidDBUserAuthMechanism_Invalid(t *testing.T) {
 	for _, v := range []string{"SCRAM-SHA-256", "mongodb-aws", "AWS", "plain", "x509"} {
-		diags := validateAuthMechanism(v, cty.Path{})
-		if len(diags) == 0 {
-			t.Errorf("expected error diagnostic for %q, got none", v)
+		if validDBUserAuthMechanism(v) {
+			t.Errorf("expected %q to be rejected", v)
 		}
 	}
 }
 
-// TestValidateIAMARN_Valid — well-formed user and role ARNs return no errors.
-func TestValidateIAMARN_Valid(t *testing.T) {
+// TestIAMARNRegex_Valid — well-formed user and role ARNs return no errors.
+func TestIAMARNRegex_Valid(t *testing.T) {
 	valid := []string{
 		"arn:aws:iam::123456789012:user/alice",
 		"arn:aws:iam::000000000000:role/MyRole",
@@ -39,15 +36,14 @@ func TestValidateIAMARN_Valid(t *testing.T) {
 		"arn:aws:iam::123456789012:user/user+name@example.com",
 	}
 	for _, v := range valid {
-		diags := validateIAMARN(v, cty.Path{})
-		if len(diags) != 0 {
-			t.Errorf("expected no diagnostics for %q, got: %v", v, diags)
+		if !iamARNRegex.MatchString(v) {
+			t.Errorf("expected %q to be a valid IAM ARN", v)
 		}
 	}
 }
 
-// TestValidateIAMARN_Invalid — malformed strings return errors.
-func TestValidateIAMARN_Invalid(t *testing.T) {
+// TestIAMARNRegex_Invalid — malformed strings return errors.
+func TestIAMARNRegex_Invalid(t *testing.T) {
 	invalid := []string{
 		"",
 		"arn:aws:iam::12345:user/alice",          // account ID too short
@@ -58,9 +54,8 @@ func TestValidateIAMARN_Invalid(t *testing.T) {
 		"arn:aws:iam::123456789012:user",         // missing slash+name
 	}
 	for _, v := range invalid {
-		diags := validateIAMARN(v, cty.Path{})
-		if len(diags) == 0 {
-			t.Errorf("expected error diagnostic for %q, got none", v)
+		if iamARNRegex.MatchString(v) {
+			t.Errorf("expected %q to be rejected as an IAM ARN", v)
 		}
 	}
 }
@@ -78,9 +73,8 @@ func TestProperty_InvalidAuthMechanismAlwaysRejected(t *testing.T) {
 			return s != "MONGODB-AWS" && s != ""
 		}).Draw(t, "auth_mechanism")
 
-		diags := validateAuthMechanism(val, cty.Path{})
-		if len(diags) == 0 {
-			t.Fatalf("expected at least one error diagnostic for %q, got none", val)
+		if validDBUserAuthMechanism(val) {
+			t.Fatalf("expected %q to be rejected", val)
 		}
 	})
 }
@@ -94,9 +88,8 @@ func TestProperty_ValidIAMARNAlwaysPasses(t *testing.T) {
 		name := rapid.StringMatching(`[\w][\w+=,.@/-]*`).Draw(t, "name")
 
 		arn := fmt.Sprintf("arn:aws:iam::%s:%s/%s", accountID, iamType, name)
-		diags := validateIAMARN(arn, cty.Path{})
-		if len(diags) != 0 {
-			t.Fatalf("expected no diagnostics for valid ARN %q, got: %v", arn, diags)
+		if !iamARNRegex.MatchString(arn) {
+			t.Fatalf("expected valid ARN %q to match", arn)
 		}
 	})
 }
@@ -111,9 +104,8 @@ func TestProperty_InvalidARNAlwaysFails(t *testing.T) {
 			return !arnPattern.MatchString(s)
 		}).Draw(t, "invalid_arn")
 
-		diags := validateIAMARN(val, cty.Path{})
-		if len(diags) == 0 {
-			t.Fatalf("expected at least one error diagnostic for %q, got none", val)
+		if iamARNRegex.MatchString(val) {
+			t.Fatalf("expected %q to be rejected as an IAM ARN", val)
 		}
 	})
 }
