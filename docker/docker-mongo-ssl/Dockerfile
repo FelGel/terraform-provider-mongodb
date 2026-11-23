@@ -1,4 +1,4 @@
-FROM mongo:6.0.12
+FROM mongo:8.0.38
 
 COPY scripts /home/mongodb/scripts
 

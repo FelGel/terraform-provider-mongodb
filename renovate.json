@@ -10,5 +10,44 @@
   ],
   "vulnerabilityAlerts": {
     "groupName": "security updates"
-  }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "MongoDB versions in the acceptance test matrix",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/test\\.yml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+- \"(?<currentValue>[^\"]+)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Default MongoDB version in docker-compose.yml (overridden by MONGODB_VERSION in CI)",
+      "managerFilePatterns": [
+        "/^docker/docker-compose\\.yml$/"
+      ],
+      "matchStrings": [
+        "image: (?<depName>mongo):\\$\\{MONGODB_VERSION:-(?<currentValue>[^}]+)\\}"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Each MongoDB version tracks one release series (7.0.x, 8.0.x); add new series by hand",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchDepNames": [
+        "mongo"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    }
+  ]
 }
