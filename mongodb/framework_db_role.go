@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -386,4 +387,21 @@ func privilegesFromSet(ctx context.Context, set types.Set) ([]PrivilegeDto, diag
 		})
 	}
 	return privileges, diags
+}
+
+func resourceDatabaseRoleParseId(id string) (string, string, error) {
+	result, errEncoding := base64.StdEncoding.DecodeString(id)
+
+	if errEncoding != nil {
+		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
+	}
+	parts := strings.SplitN(string(result), ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("unexpected format of ID (%s), expected database.roleName", id)
+	}
+
+	database := parts[0]
+	roleName := parts[1]
+
+	return roleName, database, nil
 }

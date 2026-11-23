@@ -418,3 +418,15 @@ func mustIndexKeyObject(field, value string) attr.Value {
 	})
 	return obj
 }
+
+func resourceDatabaseIndexParseId(id string) (string, string, string, error) {
+	parts, err := ParseId(id, 3)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	db := parts[0]
+	collectionName := parts[1]
+	indexName := parts[2]
+	return db, collectionName, indexName, nil
+}

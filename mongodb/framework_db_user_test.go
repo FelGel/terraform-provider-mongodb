@@ -459,7 +459,7 @@ resource "mongodb_db_user" "test" {
 `, userName, password)
 }
 
-// Unit tests for customizeDiffDBUser (via validateDBUserDiff + schema.ResourceDiff).
+// Unit tests for the db_user plan validation (validateDBUserDiff, resolveAuthDatabase).
 // These do not require a running MongoDB instance.
 
 func TestCustomizeDiff_IAMPasswordConflict(t *testing.T) {
@@ -474,7 +474,7 @@ func TestCustomizeDiff_IAMPasswordConflict(t *testing.T) {
 }
 
 func TestCustomizeDiff_IAMForcesExternalDatabase(t *testing.T) {
-	// The $external forcing is done via d.SetNew in customizeDiffDBUser.
+	// The $external forcing is done in ModifyPlan via resolveAuthDatabase.
 	// We verify here that validateDBUserDiff returns no error for MONGODB-AWS + empty password,
 	// which is the prerequisite for the SetNew call to be reached.
 	err := validateDBUserDiff("MONGODB-AWS", "")
@@ -482,12 +482,9 @@ func TestCustomizeDiff_IAMForcesExternalDatabase(t *testing.T) {
 		t.Fatalf("expected no error for MONGODB-AWS with empty password, got: %v", err)
 	}
 
-	// Also verify that non-empty auth_database values don't affect the validation result —
-	// the override to $external is a side-effect handled by customizeDiffDBUser itself.
-	// We test the full function via a resource diff using the schema.
-	resource := resourceDatabaseUser()
-	if resource.CustomizeDiff == nil {
-		t.Fatal("expected CustomizeDiff to be set on resourceDatabaseUser")
+	// The $external override itself is resolveAuthDatabase, applied in ModifyPlan.
+	if got := resolveAuthDatabase("MONGODB-AWS", "admin"); got != "$external" {
+		t.Fatalf("resolveAuthDatabase(MONGODB-AWS, admin) = %q, want $external", got)
 	}
 }
 

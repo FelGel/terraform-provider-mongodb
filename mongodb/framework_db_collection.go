@@ -114,8 +114,8 @@ func (r *dbCollectionResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	if plan.ChangeStreamPreAndPostImages.ValueBool() {
-		if diags := setChangeStreamPreAndPostImages(dbClient, collectionName, true); diags.HasError() {
-			resp.Diagnostics.AddError("Could not set change stream pre and post images", diags[0].Summary)
+		if err := setChangeStreamPreAndPostImages(dbClient, collectionName, true); err != nil {
+			resp.Diagnostics.AddError("Could not set change stream pre and post images", err.Error())
 			return
 		}
 	}
@@ -178,8 +178,8 @@ func (r *dbCollectionResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 	dbClient := client.Database(db)
 
-	if diags := setChangeStreamPreAndPostImages(dbClient, collectionName, plan.ChangeStreamPreAndPostImages.ValueBool()); diags.HasError() {
-		resp.Diagnostics.AddError("Could not set change stream pre and post images", diags[0].Summary)
+	if err := setChangeStreamPreAndPostImages(dbClient, collectionName, plan.ChangeStreamPreAndPostImages.ValueBool()); err != nil {
+		resp.Diagnostics.AddError("Could not set change stream pre and post images", err.Error())
 		return
 	}
 
@@ -259,5 +259,29 @@ func (r *dbCollectionResource) readCollectionInto(client *mongo.Client, id strin
 	m.Db = types.StringValue(db)
 	m.Name = types.StringValue(collectionName)
 	m.ChangeStreamPreAndPostImages = types.BoolValue(changeStreamEnabled)
+	return nil
+}
+
+func resourceDatabaseCollectionParseId(id string) (string, string, error) {
+	parts, err := ParseId(id, 2)
+	if err != nil {
+		return "", "", err
+	}
+
+	db := parts[0]
+	collectionName := parts[1]
+	return db, collectionName, nil
+}
+
+func setChangeStreamPreAndPostImages(dbClient *mongo.Database, collectionName string, enabled bool) error {
+	result := dbClient.RunCommand(context.Background(), bson.D{
+		{Key: "collMod", Value: collectionName},
+		{Key: "changeStreamPreAndPostImages", Value: bson.D{
+			{Key: "enabled", Value: enabled},
+		}},
+	})
+	if result.Err() != nil {
+		return fmt.Errorf("failed to set change stream pre and post images: %w", result.Err())
+	}
 	return nil
 }
