@@ -1,0 +1,55 @@
+# Dependabot version updates. Security updates additionally need
+# "Dependabot security updates" enabled in the repository settings.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      go-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      go-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Test images: stay within the current MongoDB major (8.0.x).
+  - package-ecosystem: docker
+    directory: /docker/docker-mongo-ssl
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: mongo
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker-compose
+    directory: /docker
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: mongo
+        update-types: ["version-update:semver-major"]
