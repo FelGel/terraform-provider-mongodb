@@ -309,7 +309,7 @@ func (r *dbRoleResource) Delete(ctx context.Context, req resource.DeleteRequest,
 }
 
 func (r *dbRoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }
 
 func (r *dbRoleResource) readRoleInto(client *mongo.Client, id string, m *dbRoleResourceModel) error {
