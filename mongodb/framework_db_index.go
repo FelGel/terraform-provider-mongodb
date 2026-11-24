@@ -259,7 +259,7 @@ func (r *dbIndexResource) Delete(ctx context.Context, req resource.DeleteRequest
 }
 
 func (r *dbIndexResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }
 
 // createIndex reimplements the SDKv2 createIndex against the framework model

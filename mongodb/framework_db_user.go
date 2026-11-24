@@ -399,7 +399,7 @@ func (r *dbUserResource) Delete(ctx context.Context, req resource.DeleteRequest,
 }
 
 func (r *dbUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }
 
 // readUserInto populates roles, auth_database, name, auth_mechanism and id from

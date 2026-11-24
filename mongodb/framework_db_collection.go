@@ -222,7 +222,7 @@ func (r *dbCollectionResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 func (r *dbCollectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }
 
 // readCollectionInto populates id, db, name and change_stream_pre_and_post_images
