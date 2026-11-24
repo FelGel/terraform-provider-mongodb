@@ -3,35 +3,35 @@ terraform {
 
   required_providers {
     mongodb = {
-      source = "registry.terraform.io/FelGel/mongodb"
+      source  = "registry.terraform.io/FelGel/mongodb"
       version = "9.9.9"
     }
   }
 }
 provider "mongodb" {
-  host = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
-  port = "27017"
-  username = ""
-  password = ""
-  tls = true
-  direct = true
+  host        = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
+  port        = "27017"
+  username    = ""
+  password    = ""
+  tls         = true
+  direct      = true
   certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
 }
 resource "mongodb_db_user" "user" {
   auth_database = "admin"
-  name = "monta"
-  password = "monta"
+  name          = "monta"
+  password      = "monta"
   role {
     role = "readAnyDatabase"
-    db =   "admin"
+    db   = "admin"
   }
   role {
     role = "readWrite"
-    db =   "local"
+    db   = "local"
   }
   role {
     role = "readWrite"
-    db =   "monta"
+    db   = "monta"
   }
 
 

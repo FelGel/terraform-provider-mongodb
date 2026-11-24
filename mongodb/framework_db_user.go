@@ -73,66 +73,93 @@ func (r *dbUserResource) Metadata(_ context.Context, req resource.MetadataReques
 func (r *dbUserResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
 	resp.IdentitySchema = identityschema.Schema{
 		Attributes: map[string]identityschema.Attribute{
-			"id": identityschema.StringAttribute{RequiredForImport: true},
+			"id": identityschema.StringAttribute{
+				RequiredForImport: true,
+				Description:       "Base64-encoded ID of the user, in the format `auth_database.username`.",
+			},
 		},
 	}
 }
 
 func (r *dbUserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Provides a MongoDB database user. Each user has a set of roles that grant access to databases.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "Base64-encoded ID of the user, in the format `auth_database.username`.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"auth_database": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "Database against which MongoDB authenticates the user. Required for password users; set to `$external` for `MONGODB-AWS` users.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				MarkdownDescription: "Username for authenticating to MongoDB. For `MONGODB-AWS` this must be a valid AWS IAM ARN (`arn:aws:iam::<account-id>:(user|role)/<name>`). Changing it forces a new user.",
+				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"password": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				Sensitive:     true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "User's password, stored in state as plain text. Mutually exclusive with `password_wo`; one of them is required for password users. See [Sensitive Data in State](https://developer.hashicorp.com/terraform/state/sensitive-data).",
+				Optional:            true,
+				Computed:            true,
+				Sensitive:           true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"password_wo": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
-				WriteOnly: true,
+				MarkdownDescription: "User's password, supplied via configuration and **never stored in state** (Terraform 1.11+). Mutually exclusive with `password`; requires `password_wo_version`.",
+				Optional:            true,
+				Sensitive:           true,
+				WriteOnly:           true,
 				Validators: []validator.String{
 					stringvalidator.ConflictsWith(path.MatchRoot("password")),
 					stringvalidator.AlsoRequires(path.MatchRoot("password_wo_version")),
 				},
 			},
 			"password_wo_version": schema.StringAttribute{
-				Optional: true,
+				MarkdownDescription: "Change this value to rotate the write-only `password_wo`. Write-only values are not tracked in state, so this is the update trigger.",
+				Optional:            true,
 			},
 			"auth_mechanism": schema.StringAttribute{
-				Optional: true,
+				MarkdownDescription: "Authentication mechanism: `MONGODB-AWS` (Amazon DocumentDB IAM authentication) or empty (standard SCRAM password authentication). With `MONGODB-AWS`, `password` and `password_wo` must not be set.",
+				Optional:            true,
 			},
 		},
 		Blocks: map[string]schema.Block{
 			"role": schema.SetNestedBlock{
+				MarkdownDescription: "A role granted to the user and the database it applies to. A role on the `admin` database can include privileges that apply to other databases. At most 1000 roles (Amazon DocumentDB's per-user cap).",
 				Validators: []validator.Set{
 					setvalidator.SizeAtMost(1000),
 				},
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"db":   schema.StringAttribute{Optional: true},
-						"role": schema.StringAttribute{Required: true},
+						"db": schema.StringAttribute{
+							Optional:            true,
+							MarkdownDescription: "Database on which the user has the role.",
+						},
+						"role": schema.StringAttribute{
+							Required:            true,
+							MarkdownDescription: "Name of the role to grant: a [built-in role](https://www.mongodb.com/docs/manual/reference/built-in-roles/) or a custom role (see `mongodb_db_role`).",
+						},
 					},
 				},
 			},
 			"authentication_restriction": schema.SetNestedBlock{
+				MarkdownDescription: "Restricts the client and server addresses the user may connect from and to. Maps to MongoDB's user [`authenticationRestrictions`](https://www.mongodb.com/docs/manual/reference/method/db.createUser/#authentication-restrictions) (MongoDB 3.6+). May be repeated; a connection is allowed if it satisfies any one block. The configured value is kept in state as written; the provider does not read restrictions back from the server.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"client_source":  schema.ListAttribute{Optional: true, ElementType: types.StringType},
-						"server_address": schema.ListAttribute{Optional: true, ElementType: types.StringType},
+						"client_source": schema.ListAttribute{
+							Optional:            true,
+							ElementType:         types.StringType,
+							MarkdownDescription: "IP addresses or CIDR ranges from which the user is allowed to connect.",
+						},
+						"server_address": schema.ListAttribute{
+							Optional:            true,
+							ElementType:         types.StringType,
+							MarkdownDescription: "IP addresses or CIDR ranges of the MongoDB server addresses the user is allowed to connect to.",
+						},
 					},
 				},
 			},

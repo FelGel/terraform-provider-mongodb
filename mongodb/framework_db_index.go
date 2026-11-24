@@ -66,63 +66,79 @@ func (r *dbIndexResource) Metadata(_ context.Context, req resource.MetadataReque
 func (r *dbIndexResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
 	resp.IdentitySchema = identityschema.Schema{
 		Attributes: map[string]identityschema.Attribute{
-			"id": identityschema.StringAttribute{RequiredForImport: true},
+			"id": identityschema.StringAttribute{
+				RequiredForImport: true,
+				Description:       "Base64-encoded ID of the index, in the format `db.collection.name`.",
+			},
 		},
 	}
 }
 
 func (r *dbIndexResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Provides a MongoDB index on a collection.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "Base64-encoded ID of the index, in the format `db.collection.name`.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"db": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				MarkdownDescription: "Database in which the target collection resides. Changing it forces a new index.",
+				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"collection": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				MarkdownDescription: "Collection to index. Changing it forces a new index.",
+				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			// name is Optional+Computed: MongoDB auto-generates a name when omitted,
 			// so keep prior state when the config leaves it empty (mirrors the SDKv2
 			// DiffSuppressFunc old-nonempty/new-empty case).
 			"name": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				MarkdownDescription: "Index name. If omitted, MongoDB generates one. Changing it forces a new index.",
+				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"partial_filter_expression": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				Default:       stringdefault.StaticString(""),
-				Description:   "A JSON string representing the partialFilterExpression for a partial index. Example: {\"field\": {\"$exists\": true}}",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
+				MarkdownDescription: "JSON string with the `partialFilterExpression` of a [partial index](https://www.mongodb.com/docs/manual/core/index-partial/), e.g. `jsonencode({ field_a = { \"$exists\" = true } })`. Changing it forces a new index.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"hidden": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "If true, the index is hidden from the query planner (MongoDB 4.4+). Can be toggled without recreating the index.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "Whether the index is [hidden](https://www.mongodb.com/docs/manual/core/index-hidden/) from the query planner (MongoDB 4.4+). Can be toggled in place without recreating the index, which helps evaluate whether an index is safe to drop. Defaults to `false`.",
 			},
 			"timeout": schema.Int64Attribute{
-				Optional: true,
-				Computed: true,
-				Default:  int64default.StaticInt64(30),
+				MarkdownDescription: "Timeout, in seconds, for the index creation operation. Defaults to `30`.",
+				Optional:            true,
+				Computed:            true,
+				Default:             int64default.StaticInt64(30),
 			},
 		},
 		Blocks: map[string]schema.Block{
 			"keys": schema.ListNestedBlock{
-				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+				MarkdownDescription: "Index key specification: field and value pairs where `field` is the index key and `value` the index type for that field (`1` ascending, `-1` descending). The index options `unique = \"true\"`, `sparse = \"true\"` and `expireAfterSeconds = \"<n>\"` (TTL) are also expressed as `keys` entries; they are read back after the key fields in the order unique, sparse, expireAfterSeconds, so list them last in that order to avoid a plan diff. See [`createIndex`](https://www.mongodb.com/docs/manual/reference/method/db.collection.createIndex/). Changing it forces a new index.",
+				PlanModifiers:       []planmodifier.List{listplanmodifier.RequiresReplace()},
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"field": schema.StringAttribute{Required: true},
-						"value": schema.StringAttribute{Required: true},
+						"field": schema.StringAttribute{
+							Required:            true,
+							MarkdownDescription: "Field to index, or one of the index options `unique`, `sparse` or `expireAfterSeconds`.",
+						},
+						"value": schema.StringAttribute{
+							Required:            true,
+							MarkdownDescription: "Index type for the field (`1` or `-1`), or the value of the index option.",
+						},
 					},
 				},
 			},

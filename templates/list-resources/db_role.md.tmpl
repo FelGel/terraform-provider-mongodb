@@ -1,0 +1,24 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+Then run:
+
+```sh
+terraform query
+```
+
+## Schema
+
+This list resource takes no configuration arguments. It returns every existing `mongodb_db_role`; each result uses the [`mongodb_db_role`](../resources/db_role.md) schema, and its identity is the base64-encoded `id` (`database.roleName`).

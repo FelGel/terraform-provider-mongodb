@@ -1,0 +1,46 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+> **IMPORTANT:** The `password` argument is stored in the raw state as plain text. [Read more about sensitive data in state.](https://developer.hashicorp.com/terraform/state/sensitive-data) To keep the password out of state entirely, use the write-only `password_wo` argument (Terraform 1.11+).
+
+## Example Usage
+
+### User with a predefined role
+
+{{ tffile "examples/resources/mongodb_db_user/resource.tf" }}
+
+### User with a custom role
+
+{{ tffile "examples/resources/mongodb_db_user/resource-custom-role.tf" }}
+
+### User with a write-only password (Terraform 1.11+)
+
+`password_wo` is never stored in Terraform state. Change `password_wo_version` to rotate it.
+
+{{ tffile "examples/resources/mongodb_db_user/resource-write-only-password.tf" }}
+
+### IAM (MONGODB-AWS) user for Amazon DocumentDB
+
+For `MONGODB-AWS`, `name` must be an AWS IAM ARN, no password is set, and the user lives in the `$external` database.
+
+{{ tffile "examples/resources/mongodb_db_user/resource-iam.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import the resource using its ID:
+
+{{ tffile .ImportIDConfigFile }}
+
+The `terraform import` command can also be used:
+
+{{ codefile "shell" .ImportFile }}

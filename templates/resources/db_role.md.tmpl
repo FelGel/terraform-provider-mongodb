@@ -1,0 +1,34 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Example Usage
+
+### Role with privileges
+
+{{ tffile "examples/resources/mongodb_db_role/resource.tf" }}
+
+### Role inheriting another role
+
+{{ tffile "examples/resources/mongodb_db_role/resource-inherited.tf" }}
+
+~> **IMPORTANT:** A role created in a specific database can only be inherited by other roles in the same database.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import the resource using its ID:
+
+{{ tffile .ImportIDConfigFile }}
+
+The `terraform import` command can also be used:
+
+{{ codefile "shell" .ImportFile }}
