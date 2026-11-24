@@ -31,6 +31,12 @@ In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashico
 
 {{ tffile .ImportIDConfigFile }}
 
+In Terraform v1.12.0 and later, the `import` block can use the resource identity instead of the ID:
+
+{{ tffile .ImportIdentityConfigFile }}
+
+{{ .IdentitySchemaMarkdown | trimspace }}
+
 The `terraform import` command can also be used:
 
 {{ codefile "shell" .ImportFile }}
