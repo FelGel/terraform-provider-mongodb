@@ -1,3 +1,8 @@
+---
+page_title: "mongodb Provider"
+description: |-
+  The MongoDB provider is used to interact with the resources supported by MongoDB https://www.mongodb.com/. The provider needs to be configured with the proper credentials before it can be used.
+---
 
 # MongoDB Provider
 
@@ -5,46 +10,54 @@ The MongoDB provider is used to interact with the resources supported by [MongoD
 
 Use the navigation to the left to read about the available provider resources.
 
-You may want to consider pinning the [provider version](https://www.terraform.io/docs/configuration/providers.html#provider-versions) to ensure you have a chance to review and prepare for changes.
+You may want to consider pinning the [provider version](https://developer.hashicorp.com/terraform/language/providers/requirements#version-constraints) to ensure you have a chance to review and prepare for changes.
 
 ## Example Usage
 
-```hcl
+```terraform
 # Configure the MongoDB Provider
 provider "mongodb" {
-  host = "127.0.0.1"
-  port = "27017"
-  username = "root"
-  password = "root"
+  host          = "127.0.0.1"
+  port          = "27017"
+  username      = "root"
+  password      = "root"
   auth_database = "admin"
-  tls = true
-  replica_set = "replica-set" #optional
-  retrywrites = false # default true
-  direct = true // default false
-  proxy = "socks5://myproxy:8080" // Optional
-  
+  tls           = true
+  replica_set   = "replica-set"           # optional
+  retrywrites   = false                   # default true
+  direct        = true                    # default false
+  proxy         = "socks5://myproxy:8080" # optional
 }
 ```
 
-## Example Usage with ssl
+### TLS with a CA certificate
 
-```hcl
-# Configure the MongoDB Provider
+`certificate` takes the PEM-encoded content of the CA certificate used to verify the MongoDB server, for example read with `file()`.
+
+```terraform
 provider "mongodb" {
+  host          = "127.0.0.1"
+  port          = "27017"
+  username      = "root"
+  password      = "root"
+  auth_database = "admin"
+  tls           = true
 
-  insecure_skip_verify = true  # default false (set to true to ignore hostname verification) 
-  # -> specify certificate path
-  certificate = file(pathexpand("path/to/certificate/ca.pem"))
+  # PEM-encoded CA certificate used to verify the server
+  certificate = file(pathexpand("~/.mongodb/ca.pem"))
 
-  
+  # set to true to skip certificate and hostname verification
+  insecure_skip_verify = false
 }
 ```
 
 ### Environment variables
 
-You can also provide your credentials via the environment variables, MONGO_HOST, MONGO_PORT, MONGO_USR, and MONGO_PWD respectively:
+You can also provide your credentials via the `MONGO_HOST`, `MONGO_PORT`, `MONGO_USR` and `MONGO_PWD` environment variables:
 
-```hcl
+```terraform
+# host, port, username and password come from
+# MONGO_HOST, MONGO_PORT, MONGO_USR and MONGO_PWD
 provider "mongodb" {
   auth_database = "admin"
 }
@@ -60,61 +73,12 @@ $  export MONGO_PWD="xxxx"
 $ terraform plan
 ```
 
-
-
-
-## Certificate information :
-Specify certificate information either with a directory or directly with the content of the files for connecting to the Mongodb host via TLS.
-
-```hcl
-provider "mongodb" {
-  host = "127.0.0.1"
-  port = "27017"
-  username = "root"
-  password = "root"
-  auth_database = "admin"
-  tls = true
-  # -> specify either
-  certificate = pathexpand("~/.mongodb/ca.pem")
-
-  }
-```
-## Argument Reference
-
-In addition to [generic `provider`
-arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
-`alias` and `version`), the following arguments are supported in the MongoDB
-`provider` block:
-
-* `host` - (Optional) This is the host your MongoDB Server. It must be
-  provided, but it can also be sourced from the `MONGO_HOST`
-  environment variable.
-* `port` - (Optional) This is the port that your MongoDB Server uses. It must be
-  provided, but it can also be sourced from the `MONGO_PORT`
-  environment variable.
-
-* `certificate` - (Optional) Path to a directory with certificate files  for connecting to the Docker host via TLS. I. If the path is blank, the MONGODB_CERT will also be checked.
-
-* `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. It must be
-  provided, but it can also be sourced from the `MONGO_USR`
-  environment variable.
-* `password  ` - (Optional) Specifies a password with which to authenticate to the MongoDB database. It must be
-  provided, but it can also be sourced from the `MONGO_PWD`
-  environment variable.
-* `auth_database   ` - (Required) Specifies the authentication database where the specified `username` has been created.
-* `tls   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS/SSL with SCRAM authentication.
-* `retrywrites   ` - (Optional) `default = true `Retryable writes allow MongoDB drivers to automatically retry certain write operations a single time if they encounter network errors, or if they cannot find a healthy primary in the replica sets or sharded cluster.
-* `direct   ` - (Optional) `default = false ` determine if a direct connection is needed..
-* `proxy   ` - (Optional) `default = "" ` determine if connecting via a SOCKS5 proxy is needed, it can also be sourced from the `ALL_PROXY` or `all_proxy` environment variable.
-* `auth_mechanism` - (Optional) The SASL authentication mechanism the provider uses for its own connection, e.g. `SCRAM-SHA-256`, `MONGODB-X509`, `MONGODB-AWS`, or `MONGODB-OIDC`. When empty the driver negotiates SCRAM. Can also be sourced from the `MONGO_AUTH_MECHANISM` environment variable. Mechanisms other than SCRAM authenticate against `$external`, so set `auth_database = "$external"` for `MONGODB-X509`/`MONGODB-AWS`/`MONGODB-OIDC`.
-* `auth_mechanism_properties` - (Optional) Map of additional properties for the selected `auth_mechanism`. For `MONGODB-OIDC` these are the OIDC properties such as `ENVIRONMENT` (e.g. `gcp`, `azure`) and `TOKEN_RESOURCE`; for `MONGODB-AWS`, `AWS_SESSION_TOKEN`.
-
 ### Connecting with MONGODB-OIDC
 
-```hcl
+```terraform
 provider "mongodb" {
-  host          = "mongo.example.internal"
-  auth_database = "$external"
+  host           = "mongo.example.internal"
+  auth_database  = "$external"
   auth_mechanism = "MONGODB-OIDC"
   auth_mechanism_properties = {
     ENVIRONMENT    = "gcp"
@@ -123,3 +87,23 @@ provider "mongodb" {
 }
 ```
 
+<!-- schema generated by tfplugindocs -->
+## Schema
+
+### Optional
+
+- `auth_database` (String) Authentication database where the specified `username` has been created. Defaults to `admin`. Use `$external` with the `MONGODB-X509`, `MONGODB-AWS` and `MONGODB-OIDC` mechanisms.
+- `auth_mechanism` (String) SASL authentication mechanism the provider uses for its own connection, e.g. `SCRAM-SHA-256`, `MONGODB-X509`, `MONGODB-AWS` or `MONGODB-OIDC`. When empty the driver negotiates SCRAM. Can also be sourced from the `MONGO_AUTH_MECHANISM` environment variable. Mechanisms other than SCRAM authenticate against `$external`, so set `auth_database = "$external"` for `MONGODB-X509`, `MONGODB-AWS` and `MONGODB-OIDC`.
+- `auth_mechanism_properties` (Map of String) Additional properties for the selected `auth_mechanism`. For `MONGODB-OIDC` these are the OIDC properties such as `ENVIRONMENT` (e.g. `gcp`, `azure`) and `TOKEN_RESOURCE`; for `MONGODB-AWS`, `AWS_SESSION_TOKEN`.
+- `certificate` (String) PEM-encoded content of the CA certificate used to verify the MongoDB server over TLS (for example `file("ca.pem")`). Can also be sourced from the `MONGODB_CERT` environment variable.
+- `connection_string` (String, Sensitive) MongoDB connection string (`mongodb://...`). When set it is used instead of `host` and `port`; the `retrywrites`, `tls`, `insecure_skip_verify`, `replica_set` and `direct` options are still appended to it.
+- `direct` (Boolean) Set to `true` to force a direct connection to `host` instead of discovering the topology. Defaults to `false`.
+- `host` (String) Host of your MongoDB server. Can also be sourced from the `MONGO_HOST` environment variable. Defaults to `127.0.0.1`.
+- `insecure_skip_verify` (Boolean) Set to `true` to skip TLS certificate and hostname verification. Defaults to `false`.
+- `password` (String, Sensitive) Password with which to authenticate to the MongoDB database. Can also be sourced from the `MONGO_PWD` environment variable.
+- `port` (String) Port of your MongoDB server. Can also be sourced from the `MONGO_PORT` environment variable. Defaults to `27017`.
+- `proxy` (String) SOCKS5 proxy URL to connect through, e.g. `socks5://myproxy:8080` (`socks5h://` is also accepted). Can also be sourced from the `ALL_PROXY` or `all_proxy` environment variable.
+- `replica_set` (String) Name of the replica set to connect to. Ignored when `direct` is `true`.
+- `retrywrites` (Boolean) Retryable writes let the driver automatically retry certain write operations once if they hit network errors or cannot find a healthy primary in the replica set or sharded cluster. Defaults to `true`.
+- `tls` (Boolean) Set to `true` to connect to the deployment using TLS/SSL. Defaults to `false`.
+- `username` (String) Username with which to authenticate to the MongoDB database. Can also be sourced from the `MONGO_USR` environment variable.

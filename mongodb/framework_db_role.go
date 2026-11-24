@@ -72,53 +72,84 @@ func (r *dbRoleResource) Metadata(_ context.Context, req resource.MetadataReques
 func (r *dbRoleResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
 	resp.IdentitySchema = identityschema.Schema{
 		Attributes: map[string]identityschema.Attribute{
-			"id": identityschema.StringAttribute{RequiredForImport: true},
+			"id": identityschema.StringAttribute{
+				RequiredForImport: true,
+				Description:       "Base64-encoded ID of the role, in the format `database.role`.",
+			},
 		},
 	}
 }
 
 func (r *dbRoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Provides a custom MongoDB role. Use custom roles to define sets of privileges, optionally inheriting other roles, that can be granted to users.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "Base64-encoded ID of the role, in the format `database.role`.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"database": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("admin"),
+				MarkdownDescription: "Database of the role. Defaults to `admin`. A role created in a specific database can only be inherited by other roles in the same database.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("admin"),
 			},
 			"name": schema.StringAttribute{
-				Required: true,
+				MarkdownDescription: "Name of the custom role. It can only contain letters, digits, underscores and dashes, and must not be the name of an existing custom role or of a [built-in role](https://www.mongodb.com/docs/manual/reference/built-in-roles/).",
+				Required:            true,
 			},
 		},
 		Blocks: map[string]schema.Block{
 			"privilege": schema.SetNestedBlock{
+				MarkdownDescription: "A privilege granted by the role: a set of actions on a database or collection.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"db":         schema.StringAttribute{Optional: true},
-						"collection": schema.StringAttribute{Optional: true},
+						"db": schema.StringAttribute{
+							Optional:            true,
+							MarkdownDescription: "Database on which the actions are granted.",
+						},
+						"collection": schema.StringAttribute{
+							Optional:            true,
+							MarkdownDescription: "Collection on which the actions are granted. If empty, the actions are granted on all collections in `db`.",
+						},
 						"actions": schema.ListAttribute{
-							Optional:    true,
-							ElementType: types.StringType,
+							MarkdownDescription: "Privilege actions to grant. See [privilege actions](https://www.mongodb.com/docs/manual/reference/privilege-actions/) for the complete list.",
+							Optional:            true,
+							ElementType:         types.StringType,
 						},
 					},
 				},
 			},
 			"inherited_role": schema.SetNestedBlock{
+				MarkdownDescription: "A role whose privileges this role inherits.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"db":   schema.StringAttribute{Optional: true},
-						"role": schema.StringAttribute{Required: true},
+						"db": schema.StringAttribute{
+							Optional:            true,
+							MarkdownDescription: "Database of the inherited role. This should be `admin` for all roles except `read` and `readWrite`.",
+						},
+						"role": schema.StringAttribute{
+							Required:            true,
+							MarkdownDescription: "Name of the inherited role: another custom role or a [built-in role](https://www.mongodb.com/docs/manual/reference/built-in-roles/).",
+						},
 					},
 				},
 			},
 			"authentication_restriction": schema.SetNestedBlock{
+				MarkdownDescription: "Restricts the client and server addresses that users granted this role may connect from and to. Maps to MongoDB's role [`authenticationRestrictions`](https://www.mongodb.com/docs/manual/reference/method/db.createRole/#authentication-restrictions) (MongoDB 3.6+). May be repeated; a connection is allowed if it satisfies any one block. The configured value is kept in state as written; the provider does not read restrictions back from the server.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"client_source":  schema.ListAttribute{Optional: true, ElementType: types.StringType},
-						"server_address": schema.ListAttribute{Optional: true, ElementType: types.StringType},
+						"client_source": schema.ListAttribute{
+							Optional:            true,
+							ElementType:         types.StringType,
+							MarkdownDescription: "IP addresses or CIDR ranges from which a user granted this role is allowed to connect.",
+						},
+						"server_address": schema.ListAttribute{
+							Optional:            true,
+							ElementType:         types.StringType,
+							MarkdownDescription: "IP addresses or CIDR ranges of the MongoDB server addresses a user granted this role is allowed to connect to.",
+						},
 					},
 				},
 			},
